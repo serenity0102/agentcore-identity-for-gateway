@@ -1,0 +1,18 @@
+PASS | wei   | whoami                           | expect=ALLOW got=ALLOW | HTTP 200 | [['AWSIDC:wei@techfinance.example.com']]
+PASS | wei   | read risk                        | expect=ALLOW got=ALLOW | HTTP 200 | rows=2
+PASS | wei   | update risk                      | expect=ALLOW got=ALLOW | HTTP 200 | rowcount=1
+PASS | wei   | read sales (all regions)         | expect=ALLOW got=ALLOW | HTTP 200 | rows=5
+PASS | wei   | read marketing                   | expect=DENY  got=DENY | HTTP 200 | ProgrammingError: {'S': 'ERROR', 'C': '42501', 'M': 'permission denied for schema marketing', 'F': '/opt/brazil-pkg-cache/packages/RedshiftPADB/Redshi
+PASS | zhang | whoami                           | expect=ALLOW got=ALLOW | HTTP 200 | [['AWSIDC:zhang@techfinance.example.com']]
+PASS | zhang | update marketing                 | expect=ALLOW got=ALLOW | HTTP 200 | rowcount=1
+PASS | zhang | sales non-PII cols (RLS APAC)    | expect=ALLOW got=ALLOW | HTTP 200 | rows=2
+PASS | zhang | sales PII column                 | expect=DENY  got=DENY | HTTP 200 | ProgrammingError: {'S': 'ERROR', 'C': '42501', 'M': 'permission denied for relation orders', 'F': '/opt/brazil-pkg-cache/packages/RedshiftPADB/Redshif
+PASS | zhang | read risk                        | expect=DENY  got=DENY | HTTP 200 | ProgrammingError: {'S': 'ERROR', 'C': '42501', 'M': 'permission denied for schema risk', 'F': '/opt/brazil-pkg-cache/packages/RedshiftPADB/RedshiftPAD
+PASS | chen  | read risk                        | expect=ALLOW got=ALLOW | HTTP 200 | rows=2
+PASS | chen  | read sales (all regions)         | expect=ALLOW got=ALLOW | HTTP 200 | rows=5
+PASS | chen  | update risk (read-only team)     | expect=DENY  got=DENY | HTTP 200 | ProgrammingError: {'S': 'ERROR', 'C': '42501', 'M': 'permission denied for relation credit_limits', 'F': '/opt/brazil-pkg-cache/packages/RedshiftPADB/
+PASS | chen  | privilege escalation attempt     | expect=DENY  got=DENY | HTTP 200 | ProgrammingError: {'S': 'ERROR', 'C': '42501', 'M': 'permission denied for relation campaigns', 'F': '/opt/brazil-pkg-cache/packages/RedshiftPADB/Reds
+PASS | ds1   | whoami (authenticated)           | expect=ALLOW got=ALLOW | HTTP 200 | [['AWSIDC:tojackywu@gmail.com']]
+PASS | ds1   | read sales (no grants)           | expect=DENY  got=DENY | HTTP 200 | ProgrammingError: {'S': 'ERROR', 'C': '42501', 'M': 'permission denied for schema sales', 'F': '/opt/brazil-pkg-cache/packages/RedshiftPADB/RedshiftPA
+
+16/16 cases matched expectation

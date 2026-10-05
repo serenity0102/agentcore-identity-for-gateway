@@ -1,0 +1,13 @@
+{"Version":"2012-10-17","Statement":[
+ {"Sid":"RedshiftIdcAppManagement","Effect":"Allow","Action":[
+   "redshift:DescribeQev2IdcApplications","redshift:DescribeClusters",
+   "redshift-serverless:ListNamespaces","redshift-serverless:ListWorkgroups","redshift-serverless:GetWorkgroup",
+   "sso:DescribeApplication","sso:DescribeInstance","sso:DescribeTrustedTokenIssuer",
+   "sso:CreateApplication","sso:DeleteApplication","sso:UpdateApplication",
+   "sso:PutApplicationGrant","sso:GetApplicationGrant","sso:DeleteApplicationGrant","sso:ListApplicationGrants",
+   "sso:PutApplicationAuthenticationMethod","sso:GetApplicationAuthenticationMethod","sso:ListApplicationAuthenticationMethods","sso:DeleteApplicationAuthenticationMethod",
+   "sso:PutApplicationAccessScope","sso:GetApplicationAccessScope","sso:ListApplicationAccessScopes","sso:DeleteApplicationAccessScope",
+   "sso:ListApplicationAssignments","sso:DescribeApplicationAssignment"],"Resource":"*"},
+ {"Sid":"IdentityStoreRead","Effect":"Allow","Action":[
+   "identitystore:DescribeUser","identitystore:DescribeGroup","identitystore:ListGroups","identitystore:ListUsers",
+   "identitystore:ListGroupMemberships","identitystore:ListGroupMembershipsForMember","identitystore:IsMemberInGroups","identitystore:GetUserId","identitystore:GetGroupId"],"Resource":"*"}]}

@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Email draft – AgentCore × Redshift × IAM Identity Center access-control test</title>
+<style>
+  @page { size: A4; margin: 14mm 14mm 16mm 14mm; }
+  body { font-family: "Amazon Ember", Arial, Helvetica, sans-serif; font-size: 10.5pt; color: #16191f; line-height: 1.45; }
+  .hdr { border: 1px solid #d5dbdb; border-radius: 6px; padding: 10px 14px; background: #f8f9fa; margin-bottom: 14px; }
+  .hdr div { margin: 2px 0; } .hdr b { display: inline-block; width: 64px; color: #545b64; }
+  h1 { font-size: 15pt; margin: 0 0 6px; }
+  h2 { break-after: avoid; font-size: 12pt; color: #232f3e; border-bottom: 2px solid #ff9900; padding-bottom: 2px; margin: 18px 0 8px; }
+  table { border-collapse: collapse; width: 100%; margin: 6px 0 10px; font-size: 9.2pt; }
+  th, td { border: 1px solid #d5dbdb; padding: 4px 6px; text-align: left; vertical-align: top; }
+  th { background: #232f3e; color: #fff; font-weight: 600; }
+  tr:nth-child(even) td { background: #fafafa; }
+  code { font-family: Menlo, Consolas, monospace; font-size: 8.8pt; background: #f2f3f3; padding: 0 3px; border-radius: 3px; }
+  .ok { color: #1d8102; font-weight: 700; } .deny { color: #d13212; font-weight: 700; }
+  .tldr { background: #f1faff; border-left: 4px solid #0073bb; padding: 8px 12px; margin: 10px 0; }
+  .diagram { width: 100%; border: 1px solid #eaeded; margin: 6px 0; }
+  .small { font-size: 9pt; color: #545b64; }
+  ol, ul { margin: 4px 0 8px 18px; padding: 0; } li { margin: 2px 0; }
+  .pb { page-break-before: always; }
+  .avoid { page-break-inside: avoid; }
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div><b>To:</b> [colleague@amazon.com]</div>
+  <div><b>Cc:</b> [optional]</div>
+  <div><b>Subject:</b> [Test results] AgentCore Identity patterns on Redshift: OBO enforces IdC per-user access; 2LO / 3LO compared</div>
+  <div><b>Attach:</b> architecture.svg, architecture-2lo-3lo.svg, RUNBOOK.md, tests/results-*.txt</div>
+</div>
+
+<p>Hi [Name],</p>
+
+<p>I tested whether an <b>Amazon Bedrock AgentCore Runtime</b> agent that queries and updates <b>Amazon Redshift</b> respects
+the access control that Redshift gets from <b>AWS IAM Identity Center (IdC)</b>. In short, it does, as long as the agent propagates the
+caller's identity rather than using a service credential. Below are the architecture, setup, test steps, results, and a few gotchas worth knowing
+before we recommend this pattern to customers.</p>
+
+<div class="tldr">
+<b>TL;DR</b>
+<ul>
+  <li>Every agent query runs in Redshift as the real IdC user (<code>AWSIDC:wei@…</code>), so Redshift grants, column-level grants and RLS
+      defined for IdC <b>groups</b> apply unchanged. <b>16/16</b> allow/deny cases matched expectations.</li>
+  <li>The agent's IAM role has <b>no Redshift permissions</b>. Without a user's token it cannot reach the data at all. Prompt injection could not escalate privileges, because Redshift still denied the statements.</li>
+  <li>The network is locked down: Redshift accepts 5439 only from the runtime's NAT EIP and the operator IPs. I verified this with Redshift's connection log and a revoke/restore test.</li>
+  <li><b>AgentCore Identity pattern:</b> this validates <b>On-Behalf-Of (OBO)</b>, with the token exchange done through IAM Identity Center trusted identity propagation. It is not 2LO, 3LO or SigV4-to-data. Details in section 1.1.</li>
+  <li><b>2LO and 3LO were tested too</b> (Part 2, separate runtime; OBO unchanged and re-verified at 16/16). With <b>2LO</b> every user, including one with no grants, sees all rows <i>and PII</i>, because Redshift only sees a service user. With <b>3LO</b>, Token Vault isolation and session binding work, but I found a <b>shared-browser</b> risk; an agent-side identity check fixes it. <b>18/18</b> cases passed.</li>
+  <li>Two gotchas: external JWTs are <b>single-use</b> at IdC, and an Allow-only IdC app ActorPolicy <b>does not stop same-account admins</b>. Fixes are below.</li>
+</ul>
+</div>
+
+<h2>1. Test architecture</h2>
+<img class="diagram" src="architecture.svg" alt="Architecture diagram">
+<p class="small">The IdC instance lives in ap-east-1, where AgentCore is not available. The runtime therefore runs in ap-southeast-1 (the nearest region with AgentCore) and reaches Redshift in
+ap-east-1 through a NAT Gateway with a fixed Elastic IP. AgentCore Gateway was not needed because the agent calls Redshift directly with the user's token, which keeps the identity chain to one hop.</p>
+
+<p><b>Identity flow:</b> user's browser → local <b>Web chat GUI</b> (<code>http://localhost:8080</code>) → Cognito managed login (auth code + PKCE) → Cognito ID token (JWT, kept server-side by the GUI) → AgentCore Identity inbound JWT authorizer → agent → <code>sso-oauth:CreateTokenWithIAM</code>
+(IdC customer-managed app, Trusted Token Issuer maps the Cognito <code>email</code> to the IdC user) → IdC access token → Redshift
+(<code>token_type=ACCESS_TOKEN</code>) → session user <code>AWSIDC:&lt;email&gt;</code> with roles <code>AWSIDC:&lt;group&gt;</code>.</p>
+
+<div class="avoid">
+<h3 style="font-size:11pt;margin:14px 0 6px;">1.1 Which AgentCore Identity pattern does this test validate?</h3>
+<p>Mapped against the four patterns in the <i>AgentCore Identity Deep Dive</i> deck (SigV4, 2LO, 3LO, OBO), this test validates
+<b>On-Behalf-Of (OBO), the token-exchange pattern</b>:</p>
+<table>
+  <tr><th style="width:17%">Pattern</th><th style="width:11%">Used?</th><th>How it shows up in this test</th></tr>
+  <tr><td><b>OBO (token exchange)</b></td><td class="ok">Yes, core</td><td>The agent already holds the user's token (Cognito JWT) and exchanges it, with <b>no extra user consent</b>, for a downstream token scoped to Redshift: an IdC access token with scope <code>redshift:connect</code>, via <code>CreateTokenWithIAM</code> using the jwt-bearer grant (RFC 7523). The downstream service (<b>Redshift</b>) then <b>enforces its own per-user policies</b> (grants, column grants, RLS). Each session exchanges once; <b>no Token Vault, no refresh token</b>. These are exactly the OBO traits on the deck's OBO slide: "downstream enforces per-user access, requires JWT inbound".</td></tr>
+  <tr><td><b>Inbound JWT</b> (Agent Authorizer)</td><td class="ok">Yes</td><td>AgentCore Identity's <code>customJWTAuthorizer</code> validates the Cognito JWT before the agent runs (401 on missing or forged tokens). OBO requires JWT inbound; SigV4 inbound would lose the user.</td></tr>
+  <tr><td><b>SigV4</b> (execution role)</td><td>Supporting only</td><td>The runtime role only <b>authenticates the exchange call</b> (CreateTokenWithIAM is an IAM-signed API, restricted by the IdC app ActorPolicy) and calls Bedrock. It has <b>no Redshift permission</b>, so data access never runs as the agent itself.</td></tr>
+  <tr><td><b>2LO</b> (client credentials)</td><td>Separate test (§5)</td><td>The OBO agent never authenticates to Redshift as itself. Section 5 shows what happens when it does (a service account).</td></tr>
+  <tr><td><b>3LO</b> (auth code + consent)</td><td>Separate test (§5)</td><td>The OBO flow has no browser consent and no stored resource token. Section 5 exercises 3LO with the Token Vault and session binding.</td></tr>
+</table>
+<p class="small"><b>Difference from the deck's OBO flow:</b>
+<ul class="small">
+  <li><b>Who does the exchange.</b> In the deck, AgentCore Identity's <b>Credential Provider</b> (using the agent access token, WAT) or a <b>Gateway</b> target with <code>grantType: TOKEN_EXCHANGE</code> performs it against the downstream IdP. Here the downstream IdP is <b>IAM Identity Center</b>, whose exchange (<code>CreateTokenWithIAM</code>) is an IAM-authenticated AWS API rather than a standard OAuth token endpoint. So the agent code performs it with its execution role, and the WAT, Credential Provider and Token Vault are not used. Whether the Credential Provider or Gateway can drive this natively is worth confirming with the service team.</li>
+  <li><b>What the downstream token carries.</b> The deck's OBO token carries <b>both</b> user and agent identity. Here Redshift sees the <b>user</b> (<code>AWSIDC:&lt;email&gt;</code>). The agent's identity is the IdC application that requested the token, and CloudTrail records the runtime role's exchange call.</li>
+  <li><b>Why forwarding fails.</b> Our first attempt simply forwarded the user's JWT to Redshift (<code>EXT_JWT</code>) and broke on the second connection, because IdC treats a JWT as single-use. This is why OBO's audience-scoped downstream token, rather than a forwarded JWT, is the right pattern.</li>
+</ul></p>
+</div>
+
+<h2 class="pb">2. Setup</h2>
+<table class="avoid">
+  <tr><th style="width:24%">Component</th><th>Configuration</th></tr>
+  <tr><td>IAM Identity Center (existing)</td><td><code>ssoins-715869a9a6444dc5</code>, ap-east-1. Groups risk-team, marketing-team, platform-team, data-scientists. A <b>Trusted Token Issuer</b> trusts Cognito and maps <code>email → emails.value</code>.</td></tr>
+  <tr><td>Web chat GUI</td><td><code>webchat/app.py</code> on the operator workstation, bound to 127.0.0.1 only (<code>http://localhost:8080</code>). <b>Sign in</b> goes to Cognito managed login (authorization code + PKCE, callback <code>http://localhost:8080/callback</code>). The ID token stays server-side and is sent to the runtime as the bearer token. Users switch with <b>sign out</b>; a CLI alternative is <code>tests/chat.py</code>.</td></tr>
+  <tr><td>Amazon Cognito</td><td>User pool in ap-southeast-1, <b>admin-create-only</b> (self sign-up disabled). Four test users whose emails mirror IdC users. Public app client.</td></tr>
+  <tr><td>Redshift IdC application</td><td>Namespace <code>AWSIDC</code>, authorized token issuer = Cognito TTI (audience = app client). Four groups assigned; data-engineers deliberately left out.</td></tr>
+  <tr><td>IdC customer-managed app <code>rsidc-data-agent</code></td><td>jwt-bearer grant (Cognito TTI), scope <code>redshift:connect</code>, assignment required. ActorPolicy allows <b>only the runtime role</b> and explicitly denies everyone else.</td></tr>
+  <tr><td>Amazon Redshift</td><td>ra3.large single node, encrypted, admin password managed by Secrets Manager, IdC app attached. Publicly addressable, but the <b>SG allows 5439 only from 3 × /32</b> (runtime EIP + 2 operator egress IPs) and has no egress rules.</td></tr>
+  <tr><td>AgentCore Runtime</td><td>Python 3.12 direct code deploy (Strands Agents + Claude Sonnet 5.5 on Bedrock). <b>VPC mode</b> (private subnets → NAT GW, EIP 47.131.152.68). Inbound auth: <b>customJWTAuthorizer</b> (Cognito discovery URL, audience = client id). <code>Authorization</code> header forwarded to the agent.</td></tr>
+  <tr><td>Runtime execution role</td><td>Bedrock InvokeModel, logs/X-Ray, and <code>sso-oauth:CreateTokenWithIAM</code> on the one IdC app. <b>No <code>redshift:*</code>.</b></td></tr>
+</table>
+
+
+<div class="avoid">
+<h3 style="font-size:11pt;margin:14px 0 6px;">2.1 Trusted Token Issuer: "IdC trusts JWTs issued by Cognito"</h3>
+<p>IAM Identity Center does not sign users in here; Cognito does. The <b>Trusted Token Issuer (TTI)</b> tells IdC that <i>a JWT signed by this Cognito user pool is acceptable proof of who the user is</i>, and how to find the matching IdC user. It is configured once on the IdC instance (<b>Settings → Authentication → Trusted token issuers</b>):</p>
+<img src="img/idc-trusted-token-issuer.png" alt="IdC trusted token issuers" style="width:100%;border:1px solid #eaeded;margin:4px 0">
+<table>
+  <tr><th style="width:28%">TTI setting (rsidc-cognito)</th><th>Value and meaning</th></tr>
+  <tr><td>Type / Issuer URL</td><td><code>OIDC_JWT</code> · <code>https://cognito-idp.ap-southeast-1.amazonaws.com/ap-southeast-1_kSVpAo5yl</code>. The token's <code>iss</code> must equal this</td></tr>
+  <tr><td>JWKS retrieval</td><td><code>OPEN_ID_DISCOVERY</code>: IdC fetches Cognito's signing keys via the discovery document and verifies the signature</td></tr>
+  <tr><td>Claim → identity store attribute</td><td><code>email</code> → <code>emails.value</code>: the JWT's email must match exactly one IdC user</td></tr>
+  <tr><td>Applications that trust it</td><td><code>rsidc-redshift</code> (AuthorizedTokenIssuerList) and <code>rsidc-data-agent</code> (jwt-bearer grant). Each accepts only audience <code>kff7mg63m7d94n6f2euip41na</code> (the OBO Cognito client)</td></tr>
+</table>
+<p class="small">At exchange time IdC checks, in order:
+<ol class="small">
+  <li>The issuer matches and the signature is valid.</li>
+  <li><code>aud</code> is authorized for that application.</li>
+  <li>The token is not expired and has not been redeemed before (single use).</li>
+  <li><code>email</code> matches exactly one IdC user. Example: Cognito <code>wei</code> → <code>wei@techfinance.example.com</code> → IdC user <code>wei</code> → Redshift <code>AWSIDC:wei@techfinance.example.com</code>.</li>
+  <li>The user's groups are assigned to the application.</li>
+</ol>
+Because email is the mapping key, Cognito users must be admin-created with verified emails; self sign-up is disabled.</p>
+</div>
+
+<p><b>Redshift permission model under test</b> (grants only to IdC group roles, never to individual users):</p>
+<table class="avoid">
+  <tr><th>IdC group (persona)</th><th>sales.orders</th><th>marketing.campaigns</th><th>risk.credit_limits</th></tr>
+  <tr><td>risk-team (wei)</td><td>SELECT, all rows</td><td>✗</td><td>SELECT / INSERT / UPDATE</td></tr>
+  <tr><td>marketing-team (zhang)</td><td>SELECT non-PII columns only; RLS: APAC rows only</td><td>SELECT / UPDATE</td><td>✗</td></tr>
+  <tr><td>platform-team (chen)</td><td>SELECT</td><td>SELECT</td><td>SELECT (read-only)</td></tr>
+  <tr><td>data-scientists (ds1)</td><td>✗ (signed in, but no grants)</td><td>✗</td><td>✗</td></tr>
+</table>
+
+<!-- data-views:start -->
+<div><h3 style="font-size:11pt;margin:14px 0 6px;">2.2 Data in Redshift and who can see it <span class="small">(snapshot 2026-10-05)</span></h3>
+<p>Cluster <code>rsidc-cluster</code> (ap-east-1) → database <b><code>dev</code></b> → 3 user tables, 9 rows. Full data, read as the admin (bypasses RLS):</p>
+<p class="small" style="margin:6px 0 2px"><b>dev.marketing.campaigns</b></p><table><tr><th>campaign_id</th><th>name</th><th>budget</th><th>status</th></tr><tr><td>1</td><td>Mid-Autumn Promo</td><td>50004.00</td><td>ACTIVE</td></tr><tr><td>2</td><td>Double 11</td><td>120000.00</td><td>PLANNED</td></tr></table>
+<p class="small" style="margin:6px 0 2px"><b>dev.risk.credit_limits</b></p><table><tr><th>customer_email</th><th>credit_limit</th><th>risk_score</th></tr><tr><td>alice@cust.example</td><td>10000.00</td><td>724</td></tr><tr><td>carol@cust.example</td><td>5000.00</td><td>640</td></tr></table>
+<p class="small" style="margin:6px 0 2px"><b>dev.sales.orders</b></p><table><tr><th>order_id</th><th>region</th><th>customer_email</th><th>amount</th><th>order_date</th></tr><tr><td>1</td><td>APAC</td><td>alice@cust.example</td><td>1200.00</td><td>2026-09-01</td></tr><tr><td>2</td><td>APAC</td><td>bob@cust.example</td><td>560.50</td><td>2026-09-03</td></tr><tr><td>3</td><td>EMEA</td><td>carol@cust.example</td><td>980.00</td><td>2026-09-05</td></tr><tr><td>4</td><td>AMER</td><td>dave@cust.example</td><td>2300.00</td><td>2026-09-07</td></tr><tr><td>5</td><td>EMEA</td><td>erin@cust.example</td><td>150.25</td><td>2026-09-09</td></tr></table>
+<p style="margin-top:10px"><b>What each persona actually gets back.</b> The same <code>SELECT *</code>, run through the OBO agent as that user, gives this Redshift output:</p>
+<table><tr><th>Persona (IdC group)</th><th>Redshift session user</th><th>marketing.campaigns</th><th>risk.credit_limits</th><th>sales.orders</th></tr><tr><td>wei (risk-team)</td><td><code>AWSIDC:wei@techfinance.example.com</code></td><td class="deny">✗ permission denied for schema marketing</td><td class="">2/2 rows</td><td class="">5/5 rows</td></tr><tr><td>zhang (marketing-team)</td><td><code>AWSIDC:zhang@techfinance.example.com</code></td><td class="">2/2 rows</td><td class="deny">✗ permission denied for schema risk</td><td class="">2/5 rows, columns: order_id, region, amount, order_date (hidden: customer_email)</td></tr><tr><td>chen (platform-team)</td><td><code>AWSIDC:chen@techfinance.example.com</code></td><td class="">2/2 rows</td><td class="">2/2 rows</td><td class="">5/5 rows</td></tr><tr><td>ds1 (data-scientists)</td><td><code>AWSIDC:tojackywu@gmail.com</code></td><td class="deny">✗ permission denied for schema marketing</td><td class="deny">✗ permission denied for schema risk</td><td class="deny">✗ permission denied for schema sales</td></tr></table>
+<p class="small" style="margin:6px 0 2px"><b>zhang: <code>SELECT * FROM sales.orders</code></b>. RLS keeps only APAC rows, and the column grant <b>silently drops <code>customer_email</code></b> from <code>SELECT *</code>; naming the column explicitly returns <code>42501 permission denied</code>.</p><table><tr><th>order_id</th><th>region</th><th>amount</th><th>order_date</th></tr><tr><td>1</td><td>APAC</td><td>1200.00</td><td>2026-09-01</td></tr><tr><td>2</td><td>APAC</td><td>560.50</td><td>2026-09-03</td></tr></table></div>
+<!-- data-views:end -->
+
+<h2>3. Test steps</h2>
+<p>Everything is scripted and idempotent (<code>infra/01…08</code>). The full commands and the real output of each step are in the attached RUNBOOK.md.</p>
+<ol>
+  <li>Create the runtime VPC with private subnets and a NAT Gateway with a fixed EIP (ap-southeast-1).</li>
+  <li>Create the Cognito user pool (admin-only) and four users mirroring IdC emails.</li>
+  <li>Create the IdC Trusted Token Issuer and the Redshift IdC application (<code>AWSIDC</code>), then assign groups.</li>
+  <li>Create the Redshift cluster, with the SG restricted to the runtime EIP and the operator IPs.</li>
+  <li>Seed the tables, create the <code>AWSIDC:&lt;group&gt;</code> roles, grants, column grant and RLS policies (admin via the Data API).</li>
+  <li>Create the runtime execution role (no Redshift permissions).</li>
+  <li>Create the IdC customer-managed app for the agent's token exchange, with an explicit-Deny ActorPolicy.</li>
+  <li>Deploy the agent to AgentCore Runtime (VPC mode, JWT authorizer, header forwarding).</li>
+  <li>Run the access-control matrix through the runtime: each persona signs in once and uses one runtime session.</li>
+  <li>Run the negative, security and network tests.</li>
+</ol>
+
+<h2>4. Results</h2>
+<p><b>4.1 Access-control matrix through the agent: <span class="ok">16 / 16 passed</span></b>. A DENY counts as a pass only when Redshift itself
+returns <code>42501 permission denied</code>. Connection failures count as test failures.</p>
+<table>
+  <tr><th>User</th><th>Case</th><th>Expected</th><th>Actual</th><th>Evidence</th></tr>
+  <tr><td>wei</td><td>whoami</td><td>ALLOW</td><td class="ok">ALLOW</td><td><code>AWSIDC:wei@techfinance.example.com</code></td></tr>
+  <tr><td>wei</td><td>read risk</td><td>ALLOW</td><td class="ok">ALLOW</td><td>2 rows</td></tr>
+  <tr><td>wei</td><td>update risk</td><td>ALLOW</td><td class="ok">ALLOW</td><td>rowcount = 1</td></tr>
+  <tr><td>wei</td><td>read sales (all regions)</td><td>ALLOW</td><td class="ok">ALLOW</td><td>5 rows</td></tr>
+  <tr><td>wei</td><td>read marketing</td><td>DENY</td><td class="deny">DENY</td><td>permission denied for schema marketing</td></tr>
+  <tr><td>zhang</td><td>update marketing</td><td>ALLOW</td><td class="ok">ALLOW</td><td>rowcount = 1</td></tr>
+  <tr><td>zhang</td><td>sales non-PII columns</td><td>ALLOW</td><td class="ok">ALLOW</td><td><b>2 of 5 rows (RLS: APAC only)</b></td></tr>
+  <tr><td>zhang</td><td>sales PII column</td><td>DENY</td><td class="deny">DENY</td><td>permission denied for relation orders (column grant)</td></tr>
+  <tr><td>zhang</td><td>read risk</td><td>DENY</td><td class="deny">DENY</td><td>permission denied for schema risk</td></tr>
+  <tr><td>chen</td><td>read risk / sales</td><td>ALLOW</td><td class="ok">ALLOW</td><td>2 rows / 5 rows</td></tr>
+  <tr><td>chen</td><td>update risk (read-only team)</td><td>DENY</td><td class="deny">DENY</td><td>permission denied for relation credit_limits</td></tr>
+  <tr><td>chen</td><td>GRANT escalation attempt</td><td>DENY</td><td class="deny">DENY</td><td>permission denied for relation campaigns</td></tr>
+  <tr><td>ds1</td><td>whoami / read sales</td><td>ALLOW / DENY</td><td><span class="ok">ALLOW</span> / <span class="deny">DENY</span></td><td>authenticated ≠ authorized: permission denied for schema sales</td></tr>
+</table>
+<p class="small">The whoami cases for zhang, chen and ds1 also passed; they are folded into the rows above for brevity.</p>
+
+<div class="avoid">
+<p><b>4.2 Negative, security and network tests</b></p>
+<table>
+  <tr><th style="width:6%">#</th><th style="width:44%">Test</th><th>Result</th></tr>
+  <tr><td>N1</td><td>Invoke runtime with no Authorization header</td><td class="deny">HTTP 401 Missing Authentication Token (AgentCore Identity)</td></tr>
+  <tr><td>N2</td><td>Forged JWT (zhang's token, email changed to chen)</td><td class="deny">HTTP 401 Invalid Signature for bearerToken</td></tr>
+  <tr><td>N3</td><td>Same JWT reused in a new runtime session</td><td class="deny">InvalidGrantException: JWT is already redeemed</td></tr>
+  <tr><td>N4</td><td>LLM mode: zhang asks for customer emails; then a prompt injection asking it to <code>GRANT</code></td><td>The agent returned only APAC rows without the PII column and refused the GRANT. Redshift denied the read (42501).</td></tr>
+  <tr><td>NET1</td><td>Source IPs Redshift logged for <code>AWSIDC:*</code> users</td><td>Only 47.131.152.68 (runtime) and 15.248.4.71 (operator)</td></tr>
+  <tr><td>NET3/4</td><td>Revoke the operator SG rules</td><td>Operator 5439 timed out; the runtime still worked (HTTP 200). Rules restored.</td></tr>
+  <tr><td>X1</td><td>Admin IAM user exchanges a user's JWT via the IdC app</td><td>Before the fix: <b>succeeded</b>. After the explicit Deny: <span class="deny">AccessDenied</span>.</td></tr>
+</table>
+</div>
+
+
+<h2 class="pb">5. Part 2: 2LO and 3LO test cases</h2>
+<p>To compare the other AgentCore Identity outbound patterns, I added a <b>separate</b> runtime (<code>rsidc_oauth_agent</code>), so the OBO runtime and its tests were not touched. After Part 2 the OBO matrix still passes 16/16 and the OBO runtime is still at version 3.</p>
+<img class="diagram" src="architecture-2lo-3lo.svg" alt="2LO/3LO architecture">
+
+<div class="avoid">
+<p><b>5.1 Setup</b></p>
+<table>
+  <tr><th style="width:24%">Component</th><th>Configuration</th></tr>
+  <tr><td>Cognito (same pool)</td><td>New hosted login domain (<b>managed login v2</b>), resource server <code>rsidc-reports/read</code>, and two confidential clients: <code>rsidc-2lo-agent</code> (client_credentials) and <code>rsidc-3lo-agent</code> (authorization code). The OBO client is unchanged.</td></tr>
+  <tr><td>AgentCore Identity</td><td>Two <code>CustomOauth2</code> credential providers: <code>rsidc-2lo-cognito</code> (M2M) and <code>rsidc-3lo-cognito</code> (USER_FEDERATION). The client secrets are held by AgentCore Identity. The OAuth runtime's workload identity allows a single 3LO return URL.</td></tr>
+  <tr><td>AgentCore Gateway (2LO)</td><td>MCP gateway with JWT inbound that <b>allows only the 2LO client</b>. Lambda target <code>get_sales_report</code>, invoked through the Gateway IAM role.</td></tr>
+  <tr><td>Lambda → Redshift</td><td>Redshift Data API as the shared DB user <code>svc_reporting</code> (SELECT on all of <code>sales.orders</code>); <code>GetClusterCredentials</code> is scoped to that one user.</td></tr>
+  <tr><td>OAuth agent runtime</td><td>Same Cognito JWT inbound auth and VPC. Its role can only call <code>GetResourceOauth2Token</code> on the two providers. It has no Redshift, IdC or LLM access. A 3LO <b>identity guard</b> refuses if the vault token's email ≠ the caller's email.</td></tr>
+</table>
+</div>
+
+<p><b>5.2 Test steps</b> (<code>infra/09…12</code>, <code>tests/oauth_tests.py</code>):</p>
+<ol>
+  <li>Add the Cognito domain, resource server and the 2LO/3LO clients.</li>
+  <li>Create the credential providers and point the 3LO client's callback at AgentCore Identity.</li>
+  <li>Create <code>svc_reporting</code>, the reporting Lambda and the 2LO Gateway.</li>
+  <li>Deploy the OAuth runtime and allowlist the 3LO return URL on its workload identity.</li>
+  <li><b>2LO:</b> each persona invokes the agent; the agent gets its own M2M token and calls the Gateway tool. Also call the Gateway directly with no token and with a user token.</li>
+  <li><b>3LO:</b> the first call returns a consent URL. A headless browser signs the user in at Cognito; the app callback calls <code>CompleteResourceTokenAuth</code> with the user's JWT; the next call (a new runtime session) returns the token from the vault, and the agent calls <code>userInfo</code>. Negative cases: another user, a reused session, a shared browser, and <code>prompt=login</code>. Vault-state cases use admin-created throwaway users.</li>
+</ol>
+
+<div class="avoid">
+<p><b>5.3 Results: <span class="ok">18 / 18 asserted cases passed</span>, plus 1 documented observation</b></p>
+<table>
+  <tr><th style="width:40%">Case</th><th style="width:17%">Expected</th><th>Actual / evidence</th></tr>
+  <tr><td>2LO as wei, zhang, ds1 via Gateway</td><td>agent identity</td><td class="ok">All three get the same 5 rows <b>including customer_email</b>; Redshift user = <code>svc_reporting</code>; token <code>sub</code> = 2LO client id (no user)</td></tr>
+  <tr><td>2LO Gateway called with no token / with a user's ID token</td><td>reject</td><td class="deny">401 / 403 (allowedClients = 2LO client only)</td></tr>
+  <tr><td>3LO first call (wei)</td><td>consent</td><td class="ok">CONSENT_REQUIRED (authorizationUrl + sessionUri)</td></tr>
+  <tr><td>3LO consent + CompleteResourceTokenAuth (wei)</td><td>OK</td><td class="ok">OK. The next call returns TOKEN_FROM_VAULT; <code>userInfo</code> username = wei</td></tr>
+  <tr><td>3LO zhang calls after wei consented</td><td>no reuse</td><td class="ok">CONSENT_REQUIRED; the vault is keyed by (agent, user)</td></tr>
+  <tr><td>3LO zhang's session completed with <b>wei's</b> JWT</td><td>reject</td><td class="deny">AccessDeniedException (session binding)</td></tr>
+  <tr><td>3LO zhang / wei afterwards</td><td>own tokens</td><td class="ok">Each user gets their own token; no cross-user overwrite</td></tr>
+  <tr><td>3LO <b>shared browser</b>: A's consent URL opened in a browser signed in to Cognito as wei</td><td>guard blocks</td><td class="deny">No login form was shown, so wei's token was stored for A. The agent guard returned <b>IDENTITY_MISMATCH</b></td></tr>
+  <tr><td>3LO recovery: forced re-consent by A in a clean browser</td><td>A's token</td><td class="ok">TOKEN_FROM_VAULT, username = A</td></tr>
+  <tr><td>3LO <code>prompt=login</code> in the shared browser</td><td>login form</td><td class="ok">The login form is shown (managed login v2; classic v1 ignores it)</td></tr>
+  <tr><td><i>Observed:</i> token stored after a <code>prompt=login</code> consent (sent via <code>customParameters</code>)</td><td>token</td><td><b>Not stored</b> (CONSENT_REQUIRED), although the same flow without it works. To raise with the service team</td></tr>
+</table>
+</div>
+
+<div class="avoid">
+<p><b>5.4 Same data, three patterns</b></p>
+<table>
+  <tr><th>Pattern</th><th>Identity reaching the resource</th><th>zhang (marketing)</th><th>ds1 (no grants)</th><th>Use for</th></tr>
+  <tr><td><b>OBO</b></td><td>end user (<code>AWSIDC:zhang@…</code>)</td><td>2 APAC rows, PII denied</td><td class="deny">denied</td><td>per-user data in internal systems (Redshift + IdC)</td></tr>
+  <tr><td><b>2LO</b></td><td>the agent / service (<code>svc_reporting</code>)</td><td class="deny">5 rows + PII</td><td class="deny">5 rows + PII</td><td>data every caller may see; batch / system jobs</td></tr>
+  <tr><td><b>3LO</b></td><td>end user at the resource's IdP</td><td>own profile only</td><td>own profile only</td><td>user-owned SaaS data (Google, Slack, Salesforce…) needing consent</td></tr>
+</table>
+</div>
+
+<h2>6. Findings and recommendations</h2>
+<ol>
+  <li><b>Redshift enforces the access control, not the agent.</b> IdC groups surface as <code>AWSIDC:&lt;group&gt;</code> roles, so existing grants and RLS apply to agent traffic exactly as they do to direct users.</li>
+  <li><b>External JWTs are single-use at IdC (jti replay protection).</b> Passing the JWT straight to Redshift (<code>EXT_JWT</code>) fails on the second connection. Recommended pattern: the agent exchanges it <b>once</b> via <code>CreateTokenWithIAM</code> and reuses the IdC access token (about 1 hour) inside the session. A new session needs a fresh or refreshed user token.</li>
+  <li><b>An Allow-only IdC app ActorPolicy is not a boundary against same-account admins.</b> Add an explicit Deny for all principals except the agent role, and ideally an SCP.</li>
+  <li><b>Authenticated ≠ authorized.</b> App assignment controls who can sign in; Redshift grants control what they can see.</li>
+  <li><b>Column grants silently trim <code>SELECT *</code>.</b> zhang's <code>SELECT *</code> on <code>sales.orders</code> returned 4 columns with no error; <code>customer_email</code> was simply omitted. Only naming the column explicitly is denied. Tell agent and report builders, because "no error" does not mean "all columns".</li>
+  <li><b>Metadata is visible by default.</b> Users can list tables they cannot read. Enable Redshift metadata security if table names are sensitive.</li>
+  <li><b>Network:</b> keep Redshift reachable only from known egress IPs. Corporate networks can egress different ports via different IPs, so detect the IP actually used for 5439.</li>
+  <li><b>2LO bypasses per-user data controls by design.</b> Even a user with no grants saw PII through the service account. Use 2LO only for data every caller may see, and authorize at the tool level (Gateway allowedClients and scopes).</li>
+  <li><b>3LO shared-browser risk.</b> Session binding checks the <i>app</i> user, not the account the browser signed in with at the IdP. Add an agent-side check that the vault token's subject matches the caller (verified here), and offer a forced re-consent to recover.</li>
+  <li><b><code>prompt=login</code> via <code>customParameters</code></b> shows the login form but led to no stored token. Confirm with the AgentCore Identity team before relying on it. It also needs Cognito managed login v2.</li>
+  <li><b>The Data API is an IAM path, not a network path.</b> The security group does not govern it. Scope <code>GetClusterCredentials</code> to a single DB user and consider VPC-endpoint or IP conditions.</li>
+</ol>
+
+<h2>7. Cost and cleanup</h2>
+<p>About <b>USD 0.72/hour</b> while running (Redshift ra3.large ≈ 0.65, NAT ≈ 0.065; AgentCore Runtime, Gateway, Lambda, Bedrock and Cognito are negligible at test volume).
+<code>infra/99-teardown.sh</code> removes everything, including the Redshift cluster with no final snapshot. It does not touch the existing IdC instance, users or groups.</p>
+
+<p>Happy to walk you through it or run it in a customer account. The scripts and RUNBOOK are in
+<code>agentcore-identity-for-gateway/</code>, and I can share them.</p>
+
+<!-- console-appendix:start -->
+<h2 class="pb">Appendix A. AWS console screenshots (one per setup step)</h2>
+<p class="small">Captured from my logged-in console session (account 383386985941). Each figure shows the exact URL at capture time so you can open it and validate. Steps 5 (SQL seed) and 13 (tests) have no console page; see sections 2.2 and 4.</p>
+<div class="avoid" style="margin:10px 0 14px"><p class="small" style="margin:0 0 2px"><b>Step 1 · VPC → NAT gateways → rsidc-rt-nat: public NAT, EIP 47.131.152.68 (the runtime&#x27;s only egress IP)</b><br>URL at capture (2026-10-05 15:53:06 HKT): <a href="https://ap-southeast-1.console.aws.amazon.com/vpcconsole/home?region=ap-southeast-1#NatGatewayDetails:natGatewayId=nat-042a3797afe93a19f">https://ap-southeast-1.console.aws.amazon.com/vpcconsole/home?region=ap-southeast-1#NatGatewayDetails:natGatewayId=nat-042a3797afe93a19f</a></p><img src="img/console/01-vpc-nat-gateway.png" style="width:100%;max-height:235mm;object-fit:contain;object-position:top left;border:1px solid #d5dbdb"></div>
+<div class="avoid" style="margin:10px 0 14px"><p class="small" style="margin:0 0 2px"><b>Step 2 · Cognito → rsidc-users → Users: 4 admin-created users, emails verified (they mirror IdC users)</b><br>URL at capture (2026-10-05 15:53:14 HKT): <a href="https://ap-southeast-1.console.aws.amazon.com/cognito/v2/idp/user-pools/ap-southeast-1_kSVpAo5yl/user-management/users?region=ap-southeast-1">https://ap-southeast-1.console.aws.amazon.com/cognito/v2/idp/user-pools/ap-southeast-1_kSVpAo5yl/user-management/users?region=ap-southeast-1</a></p><img src="img/console/02-cognito-users.png" style="width:100%;max-height:235mm;object-fit:contain;object-position:top left;border:1px solid #d5dbdb"></div>
+<div class="avoid" style="margin:10px 0 14px"><p class="small" style="margin:0 0 2px"><b>Step 2 · Cognito → rsidc-users → Sign-up: Self-registration = Disabled (admin-only user creation)</b><br>URL at capture (2026-10-05 15:53:22 HKT): <a href="https://ap-southeast-1.console.aws.amazon.com/cognito/v2/idp/user-pools/ap-southeast-1_kSVpAo5yl/authentication/sign-up?region=ap-southeast-1">https://ap-southeast-1.console.aws.amazon.com/cognito/v2/idp/user-pools/ap-southeast-1_kSVpAo5yl/authentication/sign-up?region=ap-southeast-1</a></p><img src="img/console/02b-cognito-sign-up.png" style="width:100%;max-height:235mm;object-fit:contain;object-position:top left;border:1px solid #d5dbdb"></div>
+<div class="avoid" style="margin:10px 0 14px"><p class="small" style="margin:0 0 2px"><b>Step 3 · IAM Identity Center → Applications (AWS managed): rsidc-redshift (Redshift IdC application)</b><br>URL at capture (2026-10-05 15:53:38 HKT): <a href="https://ap-east-1.console.aws.amazon.com/singlesignon/home?region=ap-east-1#/instances/715869a9a6444dc5/applications">https://ap-east-1.console.aws.amazon.com/singlesignon/home?region=ap-east-1#/instances/715869a9a6444dc5/applications</a></p><img src="img/console/03b-idc-applications.png" style="width:100%;max-height:235mm;object-fit:contain;object-position:top left;border:1px solid #d5dbdb"></div>
+<div class="avoid" style="margin:10px 0 14px"><p class="small" style="margin:0 0 2px"><b>Step 3 · IAM Identity Center → Settings → Authentication tab → Trusted token issuers: rsidc-cognito (click the Authentication tab; the console does not change the URL for tabs)</b><br>URL at capture (2026-10-05 15:59:32 HKT): <a href="https://ap-east-1.console.aws.amazon.com/singlesignon/home?region=ap-east-1&amp;tab=network-security#/instances/715869a9a6444dc5/settings">https://ap-east-1.console.aws.amazon.com/singlesignon/home?region=ap-east-1&amp;tab=network-security#/instances/715869a9a6444dc5/settings</a></p><img src="img/console/03-idc-trusted-token-issuer.png" style="width:100%;max-height:235mm;object-fit:contain;object-position:top left;border:1px solid #d5dbdb"></div>
+<div class="avoid" style="margin:10px 0 14px"><p class="small" style="margin:0 0 2px"><b>Step 4 · Redshift → rsidc-cluster → Properties: ra3.large, publicly addressable, IdC connection</b><br>URL at capture (2026-10-05 15:53:47 HKT): <a href="https://ap-east-1.console.aws.amazon.com/redshiftv2/home?region=ap-east-1#/cluster-details?cluster=rsidc-cluster&amp;tab=properties">https://ap-east-1.console.aws.amazon.com/redshiftv2/home?region=ap-east-1#/cluster-details?cluster=rsidc-cluster&amp;tab=properties</a></p><img src="img/console/04-redshift-cluster.png" style="width:100%;max-height:235mm;object-fit:contain;object-position:top left;border:1px solid #d5dbdb"></div>
+<div class="avoid" style="margin:10px 0 14px"><p class="small" style="margin:0 0 2px"><b>Step 4 · EC2 → Security group rsidc-redshift-sg: exactly 3 inbound /32 rules on 5439 (2 operator IPs + runtime NAT EIP), 0 outbound</b><br>URL at capture (2026-10-05 15:53:55 HKT): <a href="https://ap-east-1.console.aws.amazon.com/ec2/home?region=ap-east-1#SecurityGroup:groupId=sg-04a28577466e150f5">https://ap-east-1.console.aws.amazon.com/ec2/home?region=ap-east-1#SecurityGroup:groupId=sg-04a28577466e150f5</a></p><img src="img/console/04b-redshift-security-group.png" style="width:100%;max-height:235mm;object-fit:contain;object-position:top left;border:1px solid #d5dbdb"></div>
+<div class="avoid" style="margin:10px 0 14px"><p class="small" style="margin:0 0 2px"><b>Step 6 · IAM → rsidc-agent-runtime-role → Permissions (expanded): Bedrock, logs, workload identity, CreateTokenWithIAM on one IdC app; no redshift:*</b><br>URL at capture (2026-10-05 16:01:15 HKT): <a href="https://us-east-1.console.aws.amazon.com/iam/home#/roles/details/rsidc-agent-runtime-role?section=permissions">https://us-east-1.console.aws.amazon.com/iam/home#/roles/details/rsidc-agent-runtime-role?section=permissions</a></p><img src="img/console/06-iam-obo-runtime-role.png" style="width:100%;max-height:235mm;object-fit:contain;object-position:top left;border:1px solid #d5dbdb"></div>
+<div class="avoid" style="margin:10px 0 14px"><p class="small" style="margin:0 0 2px"><b>Step 7 · IAM Identity Center → Applications → Customer managed → rsidc-data-agent: TTI authentication Configured, 4 groups assigned, trusted for AWS Redshift (1 access scope)</b><br>URL at capture (2026-10-05 15:58:20 HKT): <a href="https://ap-east-1.console.aws.amazon.com/singlesignon/home?region=ap-east-1#/instances/715869a9a6444dc5/applications/ins-7158676c1128adac">https://ap-east-1.console.aws.amazon.com/singlesignon/home?region=ap-east-1#/instances/715869a9a6444dc5/applications/ins-7158676c1128adac</a></p><img src="img/console/07-idc-agent-app.png" style="width:100%;max-height:235mm;object-fit:contain;object-position:top left;border:1px solid #d5dbdb"></div>
+<div class="avoid" style="margin:10px 0 14px"><p class="small" style="margin:0 0 2px"><b>Step 8 · AgentCore → Runtime → rsidc_data_agent → Version 3: Inbound Auth = JWT (Cognito discovery, audience kff7mg63m7d94n6f2euip41na), VPC mode, env vars</b><br>URL at capture (2026-10-05 15:54:12 HKT): <a href="https://ap-southeast-1.console.aws.amazon.com/bedrock-agentcore/agents/rsidc_data_agent-BoemCIApSW/version/3?region=ap-southeast-1">https://ap-southeast-1.console.aws.amazon.com/bedrock-agentcore/agents/rsidc_data_agent-BoemCIApSW/version/3?region=ap-southeast-1</a></p><img src="img/console/08-agentcore-runtime-obo.png" style="width:100%;max-height:235mm;object-fit:contain;object-position:top left;border:1px solid #d5dbdb"></div>
+<div class="avoid" style="margin:10px 0 14px"><p class="small" style="margin:0 0 2px"><b>Step 9 · Cognito → rsidc-users → App clients: OBO client, rsidc-2lo-agent, rsidc-3lo-agent</b><br>URL at capture (2026-10-05 15:54:20 HKT): <a href="https://ap-southeast-1.console.aws.amazon.com/cognito/v2/idp/user-pools/ap-southeast-1_kSVpAo5yl/applications/app-clients?region=ap-southeast-1">https://ap-southeast-1.console.aws.amazon.com/cognito/v2/idp/user-pools/ap-southeast-1_kSVpAo5yl/applications/app-clients?region=ap-southeast-1</a></p><img src="img/console/09-cognito-app-clients.png" style="width:100%;max-height:235mm;object-fit:contain;object-position:top left;border:1px solid #d5dbdb"></div>
+<div class="avoid" style="margin:10px 0 14px"><p class="small" style="margin:0 0 2px"><b>Step 9 · Cognito → rsidc-users → Domain: rsidc-383386985941 with Managed login (v2)</b><br>URL at capture (2026-10-05 15:54:28 HKT): <a href="https://ap-southeast-1.console.aws.amazon.com/cognito/v2/idp/user-pools/ap-southeast-1_kSVpAo5yl/branding/domain?region=ap-southeast-1">https://ap-southeast-1.console.aws.amazon.com/cognito/v2/idp/user-pools/ap-southeast-1_kSVpAo5yl/branding/domain?region=ap-southeast-1</a></p><img src="img/console/09b-cognito-domain.png" style="width:100%;max-height:235mm;object-fit:contain;object-position:top left;border:1px solid #d5dbdb"></div>
+<div class="avoid" style="margin:10px 0 14px"><p class="small" style="margin:0 0 2px"><b>Step 10 · AgentCore → Identity: Outbound Auth providers rsidc-2lo-cognito and rsidc-3lo-cognito (Custom OAuth2)</b><br>URL at capture (2026-10-05 15:54:36 HKT): <a href="https://ap-southeast-1.console.aws.amazon.com/bedrock-agentcore/identity?region=ap-southeast-1">https://ap-southeast-1.console.aws.amazon.com/bedrock-agentcore/identity?region=ap-southeast-1</a></p><img src="img/console/10-agentcore-identity.png" style="width:100%;max-height:235mm;object-fit:contain;object-position:top left;border:1px solid #d5dbdb"></div>
+<div class="avoid" style="margin:10px 0 14px"><p class="small" style="margin:0 0 2px"><b>Step 10 · AgentCore → Identity → rsidc-2lo-cognito: Custom OAuth2, client 3lsr6jpphlql4hb8n1ge6a8sjp, Cognito discovery URL, secret in AgentCore-managed Secrets Manager; M2M token fetches</b><br>URL at capture (2026-10-05 15:54:45 HKT): <a href="https://ap-southeast-1.console.aws.amazon.com/bedrock-agentcore/identity/rsidc-2lo-cognito?region=ap-southeast-1">https://ap-southeast-1.console.aws.amazon.com/bedrock-agentcore/identity/rsidc-2lo-cognito?region=ap-southeast-1</a></p><img src="img/console/10b-credential-provider-2lo.png" style="width:100%;max-height:235mm;object-fit:contain;object-position:top left;border:1px solid #d5dbdb"></div>
+<div class="avoid" style="margin:10px 0 14px"><p class="small" style="margin:0 0 2px"><b>Step 11 · AgentCore → Gateways → rsidc-2lo-gateway: MCP gateway, IAM role rsidc-gateway-role, target &#x27;reporting&#x27; (Lambda)</b><br>URL at capture (2026-10-05 15:57:23 HKT): <a href="https://ap-southeast-1.console.aws.amazon.com/bedrock-agentcore/toolsAndGateways/rsidc-2lo-gateway-mhss1cesvt">https://ap-southeast-1.console.aws.amazon.com/bedrock-agentcore/toolsAndGateways/rsidc-2lo-gateway-mhss1cesvt</a></p><img src="img/console/11-agentcore-gateway.png" style="width:100%;max-height:235mm;object-fit:contain;object-position:top left;border:1px solid #d5dbdb"></div>
+<div class="avoid" style="margin:10px 0 14px"><p class="small" style="margin:0 0 2px"><b>Step 11 · AgentCore → Gateways → rsidc-2lo-gateway → Inbound Auth: Cognito, Allowed clients = 3lsr6jpphlql4hb8n1ge6a8sjp (2LO client only)</b><br>URL at capture (2026-10-05 15:59:43 HKT): <a href="https://ap-southeast-1.console.aws.amazon.com/bedrock-agentcore/toolsAndGateways/rsidc-2lo-gateway-mhss1cesvt?region=ap-southeast-1">https://ap-southeast-1.console.aws.amazon.com/bedrock-agentcore/toolsAndGateways/rsidc-2lo-gateway-mhss1cesvt?region=ap-southeast-1</a></p><img src="img/console/11a-gateway-inbound-auth.png" style="width:100%;max-height:235mm;object-fit:contain;object-position:top left;border:1px solid #d5dbdb"></div>
+<div class="avoid" style="margin:10px 0 14px"><p class="small" style="margin:0 0 2px"><b>Step 11 · Lambda → rsidc-reporting → Configuration: Gateway target that queries Redshift as svc_reporting</b><br>URL at capture (2026-10-05 15:55:02 HKT): <a href="https://ap-southeast-1.console.aws.amazon.com/lambda/home?region=ap-southeast-1#/functions/rsidc-reporting?tab=configure">https://ap-southeast-1.console.aws.amazon.com/lambda/home?region=ap-southeast-1#/functions/rsidc-reporting?tab=configure</a></p><img src="img/console/11b-lambda-reporting.png" style="width:100%;max-height:235mm;object-fit:contain;object-position:top left;border:1px solid #d5dbdb"></div>
+<div class="avoid" style="margin:10px 0 14px"><p class="small" style="margin:0 0 2px"><b>Step 12 · AgentCore → Runtime → rsidc_oauth_agent → Version 4: separate runtime for 2LO/3LO (JWT inbound, VPC, env CP_2LO / CP_3LO / GW_URL)</b><br>URL at capture (2026-10-05 15:55:10 HKT): <a href="https://ap-southeast-1.console.aws.amazon.com/bedrock-agentcore/agents/rsidc_oauth_agent-4lxrH9AmnT/version/4?region=ap-southeast-1">https://ap-southeast-1.console.aws.amazon.com/bedrock-agentcore/agents/rsidc_oauth_agent-4lxrH9AmnT/version/4?region=ap-southeast-1</a></p><img src="img/console/12-agentcore-runtime-oauth.png" style="width:100%;max-height:235mm;object-fit:contain;object-position:top left;border:1px solid #d5dbdb"></div>
+<div class="avoid" style="margin:10px 0 14px"><p class="small" style="margin:0 0 2px"><b>Step 12 · IAM → rsidc-oauth-runtime-role → oauth-runtime (expanded): GetResourceOauth2Token on token-vault + both credential providers + its workload identity; this is what authorizes the runtime to use rsidc-2lo-cognito</b><br>URL at capture (2026-10-05 16:01:27 HKT): <a href="https://us-east-1.console.aws.amazon.com/iam/home#/roles/details/rsidc-oauth-runtime-role?section=permissions">https://us-east-1.console.aws.amazon.com/iam/home#/roles/details/rsidc-oauth-runtime-role?section=permissions</a></p><img src="img/console/12b-iam-oauth-runtime-role.png" style="width:100%;max-height:235mm;object-fit:contain;object-position:top left;border:1px solid #d5dbdb"></div>
+<!-- console-appendix:end -->
+
+<p>Thanks,<br>[Your name]</p>
+</body>
+</html>

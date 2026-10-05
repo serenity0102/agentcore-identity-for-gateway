@@ -1,0 +1,27 @@
+### NET1 source IPs Redshift saw for IdC users (stl_connection_log)
+  ::ffff:15.248.4.71 AWSIDC:chen@techfinance.example.com
+  ::ffff:15.248.4.71 AWSIDC:tojackywu@gmail.com
+  ::ffff:15.248.4.71 AWSIDC:wei@techfinance.example.com
+  ::ffff:15.248.4.71 AWSIDC:zhang@techfinance.example.com
+  ::ffff:47.131.152.68 AWSIDC:chen@techfinance.example.com
+  ::ffff:47.131.152.68 AWSIDC:tojackywu@gmail.com
+  ::ffff:47.131.152.68 AWSIDC:wei@techfinance.example.com
+  ::ffff:47.131.152.68 AWSIDC:zhang@techfinance.example.com
+
+### NET2 workstation TCP 5439 with SG rule present
+  Connection to rsidc-cluster.c4lxyavyzchh.ap-east-1.redshift.amazonaws.com port 5439 [tcp/*] succeeded!
+### NET3 revoke workstation rules -> expect timeout
+  nc: connectx to rsidc-cluster.c4lxyavyzchh.ap-east-1.redshift.amazonaws.com port 5439 (tcp) failed: Operation timed out
+### NET4 runtime still works while workstation is blocked (runtime egress = NAT EIP 47.131.152.68)
+  (200, {'mode': 'sql', 'result': {'ok': True, 'columns': ['current_user'], 'rows': [['AWSIDC:chen@techfinance.example.com']]}})
+### NET5 restore workstation rules
+  Connection to rsidc-cluster.c4lxyavyzchh.ap-east-1.redshift.amazonaws.com port 5439 [tcp/*] succeeded!
+  15.248.5.7/32	operator workstation
+  47.131.152.68/32	AgentCore runtime NAT EIP
+  15.248.4.71/32	operator workstation
+### X1 admin IAM user (not in IdC app ActorPolicy) tries to exchange wei's JWT -> expect AccessDenied
+  UNEXPECTED: exchange succeeded
+### X1 (after explicit Deny) admin IAM user exchanges wei's JWT
+  AccessDeniedException An error occurred (AccessDeniedException) when calling the CreateTokenWithIAM operation: User: arn:aws:iam::383386985941:user/jacky is not authorized to perform: sso-oauth:CreateTokenWithIAM on resour
+### X2 runtime role still allowed (fresh session)
+  (200, {'mode': 'sql', 'result': {'ok': True, 'columns': ['current_user'], 'rows': [['AWSIDC:wei@techfinance.example.com']]}})

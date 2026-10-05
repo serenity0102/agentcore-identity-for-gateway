@@ -1,0 +1,338 @@
+{
+ "wei": {
+  "redshift_user": "AWSIDC:wei@techfinance.example.com",
+  "tables": {
+   "marketing.campaigns": {
+    "denied": "permission denied for schema marketing"
+   },
+   "risk.credit_limits": {
+    "columns": [
+     "customer_email",
+     "credit_limit",
+     "risk_score"
+    ],
+    "rows": [
+     [
+      "alice@cust.example",
+      "10000.00",
+      "724"
+     ],
+     [
+      "carol@cust.example",
+      "5000.00",
+      "640"
+     ]
+    ]
+   },
+   "sales.orders (all columns)": {
+    "columns": [
+     "order_id",
+     "region",
+     "customer_email",
+     "amount",
+     "order_date"
+    ],
+    "rows": [
+     [
+      "1",
+      "APAC",
+      "alice@cust.example",
+      "1200.00",
+      "2026-09-01"
+     ],
+     [
+      "2",
+      "APAC",
+      "bob@cust.example",
+      "560.50",
+      "2026-09-03"
+     ],
+     [
+      "3",
+      "EMEA",
+      "carol@cust.example",
+      "980.00",
+      "2026-09-05"
+     ],
+     [
+      "4",
+      "AMER",
+      "dave@cust.example",
+      "2300.00",
+      "2026-09-07"
+     ],
+     [
+      "5",
+      "EMEA",
+      "erin@cust.example",
+      "150.25",
+      "2026-09-09"
+     ]
+    ]
+   },
+   "sales.orders (non-PII columns)": {
+    "columns": [
+     "order_id",
+     "region",
+     "amount",
+     "order_date"
+    ],
+    "rows": [
+     [
+      "1",
+      "APAC",
+      "1200.00",
+      "2026-09-01"
+     ],
+     [
+      "2",
+      "APAC",
+      "560.50",
+      "2026-09-03"
+     ],
+     [
+      "3",
+      "EMEA",
+      "980.00",
+      "2026-09-05"
+     ],
+     [
+      "4",
+      "AMER",
+      "2300.00",
+      "2026-09-07"
+     ],
+     [
+      "5",
+      "EMEA",
+      "150.25",
+      "2026-09-09"
+     ]
+    ]
+   }
+  }
+ },
+ "zhang": {
+  "redshift_user": "AWSIDC:zhang@techfinance.example.com",
+  "tables": {
+   "marketing.campaigns": {
+    "columns": [
+     "campaign_id",
+     "name",
+     "budget",
+     "status"
+    ],
+    "rows": [
+     [
+      "1",
+      "Mid-Autumn Promo",
+      "50004.00",
+      "ACTIVE"
+     ],
+     [
+      "2",
+      "Double 11",
+      "120000.00",
+      "PLANNED"
+     ]
+    ]
+   },
+   "risk.credit_limits": {
+    "denied": "permission denied for schema risk"
+   },
+   "sales.orders (all columns)": {
+    "columns": [
+     "order_id",
+     "region",
+     "amount",
+     "order_date"
+    ],
+    "rows": [
+     [
+      "1",
+      "APAC",
+      "1200.00",
+      "2026-09-01"
+     ],
+     [
+      "2",
+      "APAC",
+      "560.50",
+      "2026-09-03"
+     ]
+    ]
+   },
+   "sales.orders (non-PII columns)": {
+    "columns": [
+     "order_id",
+     "region",
+     "amount",
+     "order_date"
+    ],
+    "rows": [
+     [
+      "1",
+      "APAC",
+      "1200.00",
+      "2026-09-01"
+     ],
+     [
+      "2",
+      "APAC",
+      "560.50",
+      "2026-09-03"
+     ]
+    ]
+   }
+  }
+ },
+ "chen": {
+  "redshift_user": "AWSIDC:chen@techfinance.example.com",
+  "tables": {
+   "marketing.campaigns": {
+    "columns": [
+     "campaign_id",
+     "name",
+     "budget",
+     "status"
+    ],
+    "rows": [
+     [
+      "1",
+      "Mid-Autumn Promo",
+      "50004.00",
+      "ACTIVE"
+     ],
+     [
+      "2",
+      "Double 11",
+      "120000.00",
+      "PLANNED"
+     ]
+    ]
+   },
+   "risk.credit_limits": {
+    "columns": [
+     "customer_email",
+     "credit_limit",
+     "risk_score"
+    ],
+    "rows": [
+     [
+      "alice@cust.example",
+      "10000.00",
+      "724"
+     ],
+     [
+      "carol@cust.example",
+      "5000.00",
+      "640"
+     ]
+    ]
+   },
+   "sales.orders (all columns)": {
+    "columns": [
+     "order_id",
+     "region",
+     "customer_email",
+     "amount",
+     "order_date"
+    ],
+    "rows": [
+     [
+      "1",
+      "APAC",
+      "alice@cust.example",
+      "1200.00",
+      "2026-09-01"
+     ],
+     [
+      "2",
+      "APAC",
+      "bob@cust.example",
+      "560.50",
+      "2026-09-03"
+     ],
+     [
+      "3",
+      "EMEA",
+      "carol@cust.example",
+      "980.00",
+      "2026-09-05"
+     ],
+     [
+      "4",
+      "AMER",
+      "dave@cust.example",
+      "2300.00",
+      "2026-09-07"
+     ],
+     [
+      "5",
+      "EMEA",
+      "erin@cust.example",
+      "150.25",
+      "2026-09-09"
+     ]
+    ]
+   },
+   "sales.orders (non-PII columns)": {
+    "columns": [
+     "order_id",
+     "region",
+     "amount",
+     "order_date"
+    ],
+    "rows": [
+     [
+      "1",
+      "APAC",
+      "1200.00",
+      "2026-09-01"
+     ],
+     [
+      "2",
+      "APAC",
+      "560.50",
+      "2026-09-03"
+     ],
+     [
+      "3",
+      "EMEA",
+      "980.00",
+      "2026-09-05"
+     ],
+     [
+      "4",
+      "AMER",
+      "2300.00",
+      "2026-09-07"
+     ],
+     [
+      "5",
+      "EMEA",
+      "150.25",
+      "2026-09-09"
+     ]
+    ]
+   }
+  }
+ },
+ "ds1": {
+  "redshift_user": "AWSIDC:tojackywu@gmail.com",
+  "tables": {
+   "marketing.campaigns": {
+    "denied": "permission denied for schema marketing"
+   },
+   "risk.credit_limits": {
+    "denied": "permission denied for schema risk"
+   },
+   "sales.orders (all columns)": {
+    "denied": "permission denied for schema sales"
+   },
+   "sales.orders (non-PII columns)": {
+    "denied": "permission denied for schema sales"
+   }
+  }
+ }
+}
