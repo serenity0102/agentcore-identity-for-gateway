@@ -6,6 +6,8 @@ idp = boto3.Session(profile_name="default").client("cognito-idp", region_name=os
 pool, cid = os.environ["COGNITO_POOL_ID"], os.environ["COGNITO_CLIENT_ID"]
 CALLBACKS = ["http://localhost:8080/callback", "http://localhost:8081/callback"]   # 8080 = OBO GUI, 8081 = 2LO/3LO GUI
 LOGOUTS = ["http://localhost:8080/", "http://localhost:8081/"]
+WEB = os.environ.get("WEBCHAT_URLS", "").split()  # deployed GUIs (Lambda Function URLs), set by infra/14-deploy-webchat.sh
+CALLBACKS += [f"{u}/callback" for u in WEB]; LOGOUTS += [f"{u}/" for u in WEB]
 before = idp.describe_user_pool_client(UserPoolId=pool, ClientId=cid)["UserPoolClient"]
 keep = ("ClientName", "RefreshTokenValidity", "AccessTokenValidity", "IdTokenValidity", "TokenValidityUnits", "ExplicitAuthFlows",
         "SupportedIdentityProviders", "CallbackURLs", "LogoutURLs", "AllowedOAuthFlows", "AllowedOAuthScopes",

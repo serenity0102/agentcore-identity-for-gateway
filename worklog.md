@@ -1,3 +1,27 @@
+## [2026-10-06] Web GUI 部署到 AWS（Lambda Function URL，IP 白名单）+ README 加 2LO/3LO/OBO 对比
+- **改了什么**：新增 `webchat/lambda_adapter.py`（把 Function URL 事件转成原 http.server handler，按 sourceIp/CIDR 放行）；`app.py`/`oauth_app.py` 的 base URL 改为可配；`oauth_app.py` 改用默认凭证链；新增 `infra/14-deploy-webchat.sh` 和 `infra/policies/webchat-permissions.json`；`13-web-login-client.py` 支持 `WEBCHAT_URLS`；README 加 2LO/3LO/OBO 对比表
+- **为什么改**：用户需要在 AWS 上用 GUI；Cognito 的非 localhost 回调必须用 HTTPS，所以 Function URL 是最简单的选择（不用 EC2、证书、ALB）
+- **涉及文件/资源**：Lambda `rsidc-webchat-obo`、`rsidc-webchat-oauth`，IAM `rsidc-webchat-role`，Cognito OBO client 的 callback，OAuth workload identity 的 return URL
+- **结果**：白名单 IP 访问返回 200（IPv4/IPv6 都通），非白名单返回 403；第一次部署时 IPv6 被拒，已修复
+
+## [2026-10-06] 2LO/3LO 图与动画标注 inbound / outbound 认证边界
+- **改了什么**：两张图新增 "Auth boundaries" 表（每个组件的 Inbound / Outbound 认证）；2LO 图新增 Gateway → Cognito 虚线 "inbound JWT check (JWKS)"；图例与 flow.html 的步骤标题、徽章改为明确标注 Runtime INBOUND（Cognito JWT）、Runtime OUTBOUND（AgentCore Identity）、Gateway INBOUND（Cognito JWT，allowedClients=2LO）、Gateway OUTBOUND（IAM role）；3LO 第 7 步标注 Cognito userInfo 自行校验 token；邮件与 RUNBOOK 增加同一说明；PDF 重新生成
+- **为什么改**：用户以为 Gateway 用 AgentCore Identity 认证；实际（已用 get-gateway / get-gateway-target / get-agent-runtime 只读核实）Gateway 入站也是 Cognito JWT，AgentCore Identity 只是 runtime 的出站代理
+- **涉及文件/资源**：`docs/architecture-2lo.*`、`docs/architecture-3lo.*`、`docs/_codepanel.ts`、`docs/flow_template.html`、`docs/flow.html`、`docs/email-draft.html/.pdf`、`RUNBOOK.md`
+- **结果**：两张图目视检查通过；flow.html 三个标签无 JS 报错，2LO 第 5 步显示 JWKS 校验动画
+
+## [2026-10-06] 2LO 与 3LO 拆分为两张独立架构图和两个独立动画
+- **改了什么**：新建 `docs/architecture-2lo.svg`（用户登录 → runtime → Identity M2M → Cognito client_credentials → Gateway → Lambda → Redshift svc_reporting，7 步，仅 2LO 代码）和 `docs/architecture-3lo.svg`（GUI 8081 → Cognito LOGIN 1/2 → runtime → Identity USER_FEDERATION → AgentCore callback → CompleteResourceTokenAuth → Token Vault → userInfo，7 步，仅 3LO 代码）；删除旧的合并图 `architecture-2lo-3lo.*`；flow.html 的 2LO / 3LO 标签各自绑定自己的图、节点、连线与每步代码；邮件第 5 节和 RUNBOOK Part 2 改为两张图；修复代码面板按列排布时背景高度计算错误（codePanel 未传 columnMajor）
+- **为什么改**：避免 2LO 与 3LO 的组件和代码混在一起，便于分别理解
+- **涉及文件/资源**：`docs/architecture-2lo.*`、`docs/architecture-3lo.*`、`docs/_codepanel.ts`、`docs/flow_template.html`、`docs/build_flow.py`、`docs/flow.html`、`docs/email-draft.html/.pdf`、`RUNBOOK.md`、`docs/README.md`
+- **结果**：两张图目视检查通过；flow.html 三个标签（OBO 8 步 / 2LO 7 步 / 3LO 7 步）全部跑通无 JS 报错；邮件 PDF 28 页
+
+## [2026-10-06] 架构图/动画加入 "IdC 信任 Cognito" 与关键 token 代码
+- **改了什么**：OBO 架构图新增 Cognito → IdC 虚线 "IdC trusts Cognito JWTs (TTI · JWKS)"，步骤 4 说明 TTI 校验；两张架构图底部新增 "Key token code" 代码面板（OBO：PKCE code→id_token、Bearer 调 runtime、create-trusted-token-issuer、CreateTokenWithIAM、IdpTokenAuthPlugin；2LO：GetResourceOauth2Token(M2M)、Gateway tools/call、Data API svc_reporting；3LO：USER_FEDERATION、CompleteResourceTokenAuth、vault token + 身份校验）；flow.html 每一步显示对应代码，OBO 第 4 步增加 IdC↔Cognito JWKS 动画；邮件 PDF 重新生成
+- **为什么改**：让读者看清 OBO 依赖的信任关系，以及三种模式里获取/交换 token 的实际代码
+- **涉及文件/资源**：`docs/architecture.svg/.tsx`、`docs/architecture-2lo-3lo.svg/.tsx`、`docs/_codepanel.ts`、`docs/flow_template.html`、`docs/flow.html`、`docs/email-draft.pdf`
+- **结果**：两张图 headless Chrome 目视检查通过；flow.html 三个标签无 JS 报错，21 个步骤附代码
+
 ## [2026-10-05] 新 skill aws-deploy-evidence + 本项目完整 review pack
 - **改了什么**：创建 `~/.claude/skills/aws-deploy-evidence/`（SKILL.md、capture.py 只读截图+URL/时间清单+跳转检测、build_review.py 运行只读校验并生成 REVIEW.md/HTML/PDF、cfn/tf inventory 脚本、console-urls.md 含已踩坑点）；并用它为本项目生成 `docs/review/`：按 infra/01→13 顺序 43 个资源、40 张控制台截图、29 项只读校验
 - **为什么改**：之后在 AWS 验证功能时可复用同一流程，方便 review

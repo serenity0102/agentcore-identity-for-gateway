@@ -14,11 +14,13 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "tests"))
 from invoke import invoke  # noqa: E402
 
 DOMAIN, CLIENT, RT = os.environ["COGNITO_DOMAIN"], os.environ["COGNITO_CLIENT_ID"], os.environ["OAUTH_RT_ARN"]
-BASE = "http://localhost:8081"; REDIRECT = f"{BASE}/callback"; RETURN_3LO = f"{BASE}/3lo/callback"
+BASE = os.environ.get("WEB_BASE_URL", "http://localhost:8081"); REDIRECT = f"{BASE}/callback"; RETURN_3LO = f"{BASE}/3lo/callback"
 # Session binding is the APP's job; locally it runs with the operator's AWS credentials (bedrock-agentcore:CompleteResourceTokenAuth).
-ident = boto3.Session(profile_name="default").client("bedrock-agentcore", region_name=os.environ["RT_REGION"])
+ident = boto3.client(  # local: AWS_PROFILE=default via infra/run.sh; Lambda: execution role
+    "bedrock-agentcore", region_name=os.environ["RT_REGION"])
 SESSIONS, PENDING = {}, {}
-PAGE = open(os.path.join(os.path.dirname(__file__), "oauth_index.html"), encoding="utf-8").read()
+PAGE = open(os.path.join(os.path.dirname(__file__), "oauth_index.html"), encoding="utf-8").read() \
+    .replace("http://localhost:8080", os.environ.get("OBO_WEB_URL", "http://localhost:8080"))
 
 
 def claims(jwt):

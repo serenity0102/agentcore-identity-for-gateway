@@ -9,7 +9,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "tests"))
 from invoke import invoke  # noqa: E402
 
 DOMAIN, CLIENT = os.environ["COGNITO_DOMAIN"], os.environ["COGNITO_CLIENT_ID"]
-REDIRECT = "http://localhost:8080/callback"
+BASE = os.environ.get("WEB_BASE_URL", "http://localhost:8080")  # Lambda Function URL when deployed (infra/14)
+REDIRECT = f"{BASE}/callback"
 SESSIONS, PENDING = {}, {}  # sid -> {token, user, runtime_session}; state -> code_verifier
 PAGE = open(os.path.join(os.path.dirname(__file__), "index.html"), encoding="utf-8").read()
 
@@ -57,7 +58,7 @@ class H(BaseHTTPRequestHandler):
         if u.path == "/logout":
             c = dict(p.strip().split("=", 1) for p in self.headers.get("Cookie", "").split(";") if "=" in p)
             SESSIONS.pop(c.get("sid", ""), None)
-            lo = f"{DOMAIN}/logout?{urllib.parse.urlencode(dict(client_id=CLIENT, logout_uri='http://localhost:8080/'))}"
+            lo = f"{DOMAIN}/logout?{urllib.parse.urlencode(dict(client_id=CLIENT, logout_uri=BASE + '/'))}"
             return self.send(302, headers=[("Location", lo), ("Set-Cookie", "sid=; Max-Age=0; Path=/")])
         self.send(404, "not found")
 

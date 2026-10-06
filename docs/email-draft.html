@@ -30,7 +30,7 @@
   <div><b>To:</b> [colleague@amazon.com]</div>
   <div><b>Cc:</b> [optional]</div>
   <div><b>Subject:</b> [Test results] AgentCore Identity patterns on Redshift: OBO enforces IdC per-user access; 2LO / 3LO compared</div>
-  <div><b>Attach:</b> architecture.svg, architecture-2lo-3lo.svg, RUNBOOK.md, tests/results-*.txt</div>
+  <div><b>Attach:</b> architecture.svg, architecture-2lo.svg, architecture-3lo.svg, RUNBOOK.md, tests/results-*.txt</div>
 </div>
 
 <p>Hi [Name],</p>
@@ -191,7 +191,19 @@ returns <code>42501 permission denied</code>. Connection failures count as test 
 
 <h2 class="pb">5. Part 2: 2LO and 3LO test cases</h2>
 <p>To compare the other AgentCore Identity outbound patterns, I added a <b>separate</b> runtime (<code>rsidc_oauth_agent</code>), so the OBO runtime and its tests were not touched. After Part 2 the OBO matrix still passes 16/16 and the OBO runtime is still at version 3.</p>
-<img class="diagram" src="architecture-2lo-3lo.svg" alt="2LO/3LO architecture">
+<p style="margin:10px 0 2px"><b>2LO architecture</b>: the agent authenticates as itself (client credentials) → AgentCore Gateway → Redshift service user.</p>
+<img class="diagram" src="architecture-2lo.svg" alt="2LO architecture">
+<p style="margin:14px 0 2px"><b>3LO architecture</b>: the user consents once; AgentCore Identity keeps the user's token in the Token Vault (session binding by the app).</p>
+<img class="diagram" src="architecture-3lo.svg" alt="3LO architecture">
+<p class="small" style="margin:8px 0"><b>Who authenticates what (2LO / 3LO).</b> Both the runtime and the Gateway have <b>inbound JWT authorizers that trust Cognito</b>:
+<ul class="small">
+  <li><b>Runtime:</b> the user's ID token, audience = OBO client.</li>
+  <li><b>Gateway:</b> the M2M access token, allowedClients = 2LO client.</li>
+  <li><b>AgentCore Identity</b> is the runtime's <b>outbound</b> broker. It fetches tokens from Cognito (M2M, or the user's token from the Token Vault). The Gateway doesn't trust AgentCore Identity; it validates the Cognito-issued token against Cognito's JWKS.</li>
+  <li><b>Gateway outbound:</b> its IAM role invokes the Lambda.</li>
+  <li><b>3LO:</b> there is no Gateway; Cognito <code>userInfo</code> validates the user's token itself.</li>
+</ul></p>
+
 
 <div class="avoid">
 <p><b>5.1 Setup</b></p>

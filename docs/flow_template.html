@@ -13,7 +13,7 @@
   .tabs button.on { background:var(--orange); color:#000; border-color:var(--orange); font-weight:700; }
   .ctl { display:flex; gap:6px; align-items:center; margin-left:auto; }
   .ctl label { font-size:12px; opacity:.85; }
-  main { display:grid; grid-template-columns: 1fr 340px; gap:14px; padding:14px; }
+  main { display:grid; grid-template-columns: 1fr 520px; gap:14px; padding:14px; }
   .stage { background:#fff; border:1px solid var(--line); border-radius:8px; padding:6px; }
   .stage svg { width:100%; height:auto; display:block; }
   aside { background:#fff; border:1px solid var(--line); border-radius:8px; padding:12px 14px; font-size:13px; }
@@ -21,6 +21,8 @@
   #caption { min-height:110px; background:#f1faff; border-left:4px solid #0073bb; padding:8px 10px; border-radius:4px; line-height:1.45; }
   #caption b.h, #caption b.login { display:block; margin-bottom:4px; }
   #caption b.login { color:#ff9900; }
+  #code { background:#0f1b2a; color:#d6e4f0; font:11px/1.45 Menlo,Consolas,monospace; padding:8px 10px; border-radius:6px; white-space:pre; overflow-x:auto; margin:8px 0 0; min-height:40px; }
+  #code .c { color:#7f9bb8; } #codeh { font-size:12px; font-weight:700; margin:10px 0 0; color:#232f3e; }
   ol#steps { padding-left:20px; margin:10px 0; }
   ol#steps li { margin:3px 0; cursor:pointer; color:var(--muted); }
   ol#steps li.on { color:var(--ink); font-weight:700; }
@@ -56,11 +58,13 @@
 <main>
   <div class="stage">
     <div id="svg-obo">__SVG_OBO__</div>
-    <div id="svg-oauth" style="display:none">__SVG_OAUTH__</div>
+    <div id="svg-2lo" style="display:none">__SVG_2LO__</div>
+    <div id="svg-3lo" style="display:none">__SVG_3LO__</div>
   </div>
   <aside>
     <h2 id="title">OBO</h2>
     <div id="caption"><b class="h">Press ▶ Play</b>Each step moves a token along the real arrows. <b style="display:inline;color:#ff9900">LOGIN</b> marks where the user must sign in.</div>
+    <div id="codeh">Key code for this step</div><pre id="code">—</pre>
     <ol id="steps"></ol>
     <div class="key">
       <span style="background:#ff9900;color:#000">login / credentials</span>
@@ -85,58 +89,62 @@ const S = {
     nodes:{ users:["End users (browser)",0], gui:["Web chat GUI",0], ops:["Operator tools",0], cognito:["Amazon Cognito",0], agent:["Amazon Bedrock AgentCore",0],
             nat:["NAT Gateway",0], bedrock:["Amazon Bedrock",0], idc:["AWS IAM Identity Center",0], redshift:["Amazon Redshift",0] },
     steps:[
-      { legend:[1], t:"Open the Web chat GUI", d:"The user opens <code>http://localhost:8080</code> (<code>webchat/app.py</code>, running on the operator workstation and bound to 127.0.0.1) and clicks <b>Sign in</b>.",
+      { legend:[1], code:"# webchat/app.py: start sign-in\nGET /login -> 302 https://rsidc-383386985941.auth.ap-southeast-1.amazoncognito.com\n  /oauth2/authorize?response_type=code&client_id=kff7mg63m7d94n6f2euip41na\n  &redirect_uri=http://localhost:8080/callback&scope=openid+email+profile\n  &state=<random>&code_challenge=<S256(verifier)>&code_challenge_method=S256", t:"Open the Web chat GUI", d:"The user opens <code>http://localhost:8080</code> (<code>webchat/app.py</code>, running on the operator workstation and bound to 127.0.0.1) and clicks <b>Sign in</b>.",
         a:[["move",[0],false,"open localhost:8080",C.data],["badge","gui","info","Sign in →"]] },
-      { legend:[2], t:"User signs in to Cognito (code + PKCE)", d:"<b class='login'>LOGIN 1/1</b>The GUI redirects to <b>Cognito managed login</b>. The user enters username and password; the GUI exchanges the code (with PKCE) for the <b>ID token (JWT)</b> and keeps it <b>server-side</b>, never in the browser.",
+      { legend:[2], code:"# webchat/app.py /callback: code -> ID token (PKCE, public client)\nPOST https://rsidc-383386985941.auth.ap-southeast-1.amazoncognito.com/oauth2/token\n  grant_type=authorization_code  client_id=kff7mg63m7d94n6f2euip41na\n  code=<code>  redirect_uri=http://localhost:8080/callback  code_verifier=<verifier>\n# -> id_token (JWT: iss=Cognito pool, aud=OBO client, email=wei@...)\n# kept server-side; the browser only gets an HttpOnly session cookie", t:"User signs in to Cognito (code + PKCE)", d:"<b class='login'>LOGIN 1/1</b>The GUI redirects to <b>Cognito managed login</b>. The user enters username and password; the GUI exchanges the code (with PKCE) for the <b>ID token (JWT)</b> and keeps it <b>server-side</b>, never in the browser.",
         a:[["badge","users","login","LOGIN · Cognito managed login"],["move",[1],false,"sign in (code + PKCE)",C.login],["move",[1],true,"ID token (JWT)",C.jwt],["badge","gui","info","JWT kept server-side"]] },
-      { legend:[3], t:"GUI invokes the agent with the JWT", d:"The JWT is sent as <code>Authorization: Bearer</code>. The <b>AgentCore Identity</b> JWT authorizer checks the signature, issuer, audience and expiry; a missing or forged token gets 401. The header is forwarded to the agent.",
+      { legend:[3], code:"# tests/invoke.py (used by the GUI)\nPOST https://bedrock-agentcore.ap-southeast-1.amazonaws.com\n     /runtimes/<url-encoded runtime ARN>/invocations?qualifier=DEFAULT\n  Authorization: Bearer <id_token>\n  X-Amzn-Bedrock-AgentCore-Runtime-Session-Id: <one per sign-in>\n# runtime: customJWTAuthorizer(discoveryUrl=Cognito, allowedAudience=[kff7mg63...])\n#          requestHeaderAllowlist=[\"Authorization\"] -> agent reads the JWT", t:"GUI invokes the agent with the JWT", d:"The JWT is sent as <code>Authorization: Bearer</code>. The <b>AgentCore Identity</b> JWT authorizer checks the signature, issuer, audience and expiry; a missing or forged token gets 401. The header is forwarded to the agent.",
         a:[["move",[2],false,"Bearer JWT",C.jwt],["badge","agent","ok","JWT valid (sig · iss · aud · exp)"]] },
-      { legend:[4], t:"Exchange the JWT at IdC (once)", d:"The agent calls <code>CreateTokenWithIAM</code> (jwt-bearer). The Trusted Token Issuer maps <code>email</code> to IdC user wei. The JWT is now <b>redeemed</b>, single use. IdC returns an <b>IdC access token</b> (scope <code>redshift:connect</code>), cached for the session.",
-        a:[["move",[3,4],false,"JWT (assertion)",C.jwt],["badge","idc","ok","email → IdC user wei · JWT redeemed"],["move",[4,3],true,"IdC access token",C.idc]] },
-      { legend:[5], t:"LLM plans the SQL", d:"Claude on Bedrock decides which SQL to run. <b>No user token goes to the LLM.</b>",
+      { legend:[4], code:"# IdC side (infra/03): IdC trusts Cognito = Trusted Token Issuer\naws sso-admin create-trusted-token-issuer --name rsidc-cognito \\\n  --trusted-token-issuer-type OIDC_JWT --trusted-token-issuer-configuration \\\n  OidcJwtConfiguration={IssuerUrl=https://cognito-idp.ap-southeast-1.amazonaws.com/ap-southeast-1_kSVpAo5yl,\n    ClaimAttributePath=email,IdentityStoreAttributePath=emails.value,JwksRetrievalOption=OPEN_ID_DISCOVERY}\n\n# agent/redshift_tools.py: exchange once per sign-in, cache per sha256(JWT)\nr = boto3.client(\"sso-oidc\", region_name=\"ap-east-1\").create_token_with_iam(\n    clientId=AGENT_IDC_APP_ARN,    # rsidc-data-agent (jwt-bearer grant -> TTI)\n    grantType=\"urn:ietf:params:oauth:grant-type:jwt-bearer\",\n    assertion=user_jwt)            # Cognito ID token (single use: jti)\nidc_token = r[\"accessToken\"]     # scope redshift:connect, ~1h", t:"IdC trusts Cognito → exchange the JWT (once)", d:"The agent calls <code>CreateTokenWithIAM</code> (jwt-bearer). <b>IdC trusts Cognito</b> through the Trusted Token Issuer <code>rsidc-cognito</code>: it fetches Cognito's JWKS (OIDC discovery) to verify the JWT signature and checks the audience. The TTI maps <code>email</code> to IdC user wei. The JWT is now <b>redeemed</b>, single use. IdC returns an <b>IdC access token</b> (scope <code>redshift:connect</code>), cached for the session.",
+        a:[["move",[3,4],false,"JWT (assertion)",C.jwt],["badge","idc","info","TTI rsidc-cognito: is this issuer trusted?"],
+           ["move",[10],true,"fetch JWKS (OIDC discovery)",C.data],["move",[10],false,"Cognito signing keys",C.data],
+           ["badge","idc","ok","signature ✓ · aud ✓ · email → IdC user wei · JWT redeemed"],["move",[4,3],true,"IdC access token",C.idc]] },
+      { legend:[5], code:"# agent/main.py: Strands agent, the tool is a closure over THIS request's JWT\n@tool\ndef run_sql(sql: str) -> dict:\n    return execute_as_user(user_jwt, sql)\nagent = Agent(model=BedrockModel(model_id=\"global.anthropic.claude-sonnet-5-5\"),\n              system_prompt=SYSTEM_PROMPT, tools=[run_sql])\n# the LLM never sees the user's token", t:"LLM plans the SQL", d:"Claude on Bedrock decides which SQL to run. <b>No user token goes to the LLM.</b>",
         a:[["move",[5],false,"prompt + schema",C.data],["move",[5],true,"run_sql(...)",C.data]] },
-      { legend:[6,7], t:"Connect to Redshift as the user", d:"Through the NAT GW (fixed EIP). The SG allows only that EIP and the operator IPs. Redshift validates the IdC token, and the session runs as <b>AWSIDC:wei@…</b> with roles <b>AWSIDC:risk-team</b>.",
+      { legend:[6,7], code:"# agent/redshift_tools.py: connect as the user (egress via NAT EIP 47.131.152.68)\nconn = redshift_connector.connect(host=REDSHIFT_HOST, port=5439, database=\"dev\",\n    credentials_provider=\"IdpTokenAuthPlugin\",\n    token=idc_token, token_type=\"ACCESS_TOKEN\", ssl=True)\n# Redshift session user = AWSIDC:wei@techfinance.example.com\n# roles = AWSIDC:risk-team -> GRANTs + column grants + RLS apply", t:"Connect to Redshift as the user", d:"Through the NAT GW (fixed EIP). The SG allows only that EIP and the operator IPs. Redshift validates the IdC token, and the session runs as <b>AWSIDC:wei@…</b> with roles <b>AWSIDC:risk-team</b>.",
         a:[["move",[6],false,"IdC access token",C.idc],["badge","nat","info","egress 47.131.152.68"],["move",[7],false,"IdC access token",C.idc],["badge","redshift","ok","SG ✓ · session AWSIDC:wei · grants + RLS"]] },
-      { legend:[7], t:"Rows come back to the GUI, filtered for this user", d:"Redshift applies wei's group grants, column grants and RLS. In the same GUI, zhang would see 2 APAC rows without the email column, and ds1 would be denied (42501).",
+      { legend:[7], code:"cur = conn.cursor(); cur.execute(sql)\nrows = cur.fetchmany(50)        # already filtered by Redshift for this user\n# zhang: SELECT * FROM sales.orders -> 2 APAC rows, customer_email silently omitted\n# ds1:   -> ERROR 42501 permission denied for schema sales", t:"Rows come back to the GUI, filtered for this user", d:"Redshift applies wei's group grants, column grants and RLS. In the same GUI, zhang would see 2 APAC rows without the email column, and ds1 would be denied (42501).",
         a:[["move",[7,6],true,"rows (wei's view)",C.data],["move",[2],true,"answer / table",C.data],["move",[0],true,"shown in browser",C.data]] },
-      { legend:[8], t:"Operator path (setup and tests only)", d:"Operator tools on the same workstation (tests, admin seeding via the Data API with a Secrets Manager secret) are the only other allowlisted source. The agent does not use this path.",
+      { legend:[8], code:"# infra/05-seed-redshift.py: admin only, Data API + Secrets Manager secret\nboto3.client(\"redshift-data\").execute_statement(ClusterIdentifier=\"rsidc-cluster\",\n    Database=\"dev\", SecretArn=REDSHIFT_ADMIN_SECRET_ARN, Sql=stmt)", t:"Operator path (setup and tests only)", d:"Operator tools on the same workstation (tests, admin seeding via the Data API with a Secrets Manager secret) are the only other allowlisted source. The agent does not use this path.",
         a:[["move",[8,9],false,"admin · operator IP",C.data],["badge","redshift","info","SG: operator IP allowed"]] },
     ]},
-  "2lo": { svg:"svg-oauth", title:"2LO: agent authenticates as itself (client credentials) → Gateway → service account",
-    nodes:{ users:["End users",0], identity:["Amazon Bedrock AgentCore",0], agent:["Amazon Bedrock AgentCore",1], gw:["Amazon Bedrock AgentCore",2],
+  "2lo": { svg:"svg-2lo", title:"2LO: the agent authenticates as itself (client credentials) → Gateway → service account",
+    nodes:{ users:["End users",0], agent:["Amazon Bedrock AgentCore",0], gw:["Amazon Bedrock AgentCore",1], identity:["Amazon Bedrock AgentCore",2],
             fn:["AWS Lambda",0], cognito:["Amazon Cognito",0], redshift:["Amazon Redshift",0] },
     steps:[
-      { legend:[1], t:"User signs in to Cognito", d:"<b class='login'>LOGIN 1/1</b>An app sign-in only identifies the caller to the agent. It gives the user nothing at the data layer.",
-        a:[["badge","users","login","LOGIN · username + password"],["move",[1],false,"username + password",C.login],["move",[1],true,"ID token (JWT)",C.jwt]] },
-      { legend:[1], t:"Invoke the agent", d:"The runtime JWT authorizer validates the token. The runtime gets a <b>workload access token (WAT)</b> bound to (agent, user).",
-        a:[["move",[0],false,"Bearer JWT",C.jwt],["badge","agent","ok","JWT valid → WAT (agent+user)"]] },
-      { legend:[2], t:"Get the agent's OWN token (M2M)", d:"<code>GetResourceOauth2Token(M2M)</code>: the credential provider runs Cognito <b>client_credentials</b>. The token's <code>sub</code> is the 2LO client. <b>There is no user in it.</b>",
-        a:[["move",[2],false,"WAT · M2M request",C.jwt],["badge","identity","info","client_credentials (no user)"],["move",[2],true,"M2M token (agent)",C.m2m]] },
-      { legend:[5], t:"Call the Gateway tool", d:"The Gateway JWT authorizer accepts <b>only the 2LO client</b>. A user's own JWT gets 403, and no token gets 401.",
-        a:[["move",[3],false,"Bearer M2M token",C.m2m],["badge","gw","ok","allowedClients = 2LO client ✓"]] },
-      { legend:[6,7], t:"Lambda queries Redshift as a service user", d:"The Gateway role invokes the Lambda, which uses the Data API as <b>svc_reporting</b>. The end user's identity is not propagated.",
-        a:[["move",[4],false,"IAM invoke",C.data],["move",[5],false,"DbUser svc_reporting",C.data],["badge","redshift","warn","session = svc_reporting (shared)"]] },
-      { legend:[7], t:"Everyone sees the same data", d:"wei, zhang and even <b>ds1 (no grants)</b> all receive <b>5 rows including customer_email</b>. Compare OBO: zhang 2 rows, ds1 denied.",
-        a:[["move",[5,4,3],true,"5 rows + PII",C.deny],["move",[0],true,"same answer for everyone",C.deny]] },
+      { legend:[1], code:"# browser -> Cognito managed login -> code -> app exchanges it for the ID token\nPOST {cognito-domain}/oauth2/token  grant_type=authorization_code ... code_verifier=<PKCE>\n# -> id_token (JWT): identifies the caller to the agent only", t:"User signs in to Cognito (the only login)", d:"<b class='login'>LOGIN 1/1</b>The app sign-in identifies the caller to the agent. In 2LO it gives the user nothing at the data layer.",
+        a:[["badge","users","login","LOGIN \u00b7 username + password"],["move",[0, 1, 2],false,"username + password",C.login],["move",[2, 1, 0],true,"ID token (JWT)",C.jwt]] },
+      { legend:[2], code:"POST https://bedrock-agentcore.ap-southeast-1.amazonaws.com/runtimes/<rsidc_oauth_agent ARN>/invocations\n  Authorization: Bearer <id_token>\n# agent_oauth/main.py\nwat = BedrockAgentCoreContext.get_workload_access_token()", t:"Runtime INBOUND auth: Cognito JWT", d:"The runtime's JWT authorizer validates the user's <b>Cognito ID token</b> (discovery = Cognito pool, audience = OBO client) and hands the agent a <b>workload access token (WAT)</b> bound to (agent, user).",
+        a:[["move",[3],false,"Bearer JWT",C.jwt],["badge","agent","ok","inbound: Cognito JWT \u2713 \u2192 WAT (agent+user)"]] },
+      { legend:[3], code:"# agent_oauth/main.py\ntok = boto3.client(\"bedrock-agentcore\").get_resource_oauth2_token(\n    workloadIdentityToken=wat,\n    resourceCredentialProviderName=\"rsidc-2lo-cognito\",\n    scopes=[\"rsidc-reports/read\"], oauth2Flow=\"M2M\")[\"accessToken\"]", t:"Runtime OUTBOUND auth via AgentCore Identity", d:"<code>GetResourceOauth2Token(M2M)</code> on provider <code>rsidc-2lo-cognito</code>, scope <code>rsidc-reports/read</code>.",
+        a:[["move",[4],false,"GetResourceOauth2Token(M2M)",C.jwt],["badge","identity","info","outbound broker · rsidc-2lo-cognito (M2M)"]] },
+      { legend:[4], code:"# done by AgentCore Identity for the agent\nPOST https://rsidc-383386985941.auth.ap-southeast-1.amazoncognito.com/oauth2/token\n  grant_type=client_credentials  scope=rsidc-reports/read\n  client_id=3lsr6jpphlql4hb8n1ge6a8sjp  client_secret=<managed secret>\n# -> access token: sub=client_id=3lsr6jpp..., scope=rsidc-reports/read, no username", t:"client_credentials at Cognito (no user, no login)", d:"AgentCore Identity calls the Cognito token endpoint with the 2LO client ID and secret (kept in its managed Secrets Manager secret). The M2M token's <code>sub</code> is the client. <b>There is no user in it.</b>",
+        a:[["move",[5],false,"client_credentials (id + secret)",C.m2m],["badge","cognito","info","client_credentials \u00b7 no user"],["move",[5],true,"M2M token",C.m2m],["move",[4],true,"M2M token (agent)",C.m2m]] },
+      { legend:[5], code:"POST https://rsidc-2lo-gateway-mhss1cesvt.gateway.bedrock-agentcore.ap-southeast-1.amazonaws.com/mcp\n  Authorization: Bearer <m2m token>\n  {\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"reporting___get_sales_report\",\"arguments\":{}}}\n# Gateway customJWTAuthorizer: allowedClients=[3lsr6jpphlql4hb8n1ge6a8sjp]", t:"Gateway INBOUND auth: Cognito JWT (not AgentCore Identity)", d:"The Gateway's <b>own JWT authorizer</b> validates the M2M token against the <b>same Cognito pool</b> (JWKS) and accepts <b>only the 2LO client</b> (a user's JWT gets 403, no token 401). AgentCore Identity only <i>fetched</i> the token; the Gateway trusts <b>Cognito</b>.",
+        a:[["move",[6],false,"Bearer M2M token",C.m2m],["move",[9],false,"verify signature (JWKS)",C.data],["move",[9],true,"Cognito signing keys",C.data],["badge","gw","ok","inbound: Cognito JWT \u00b7 allowedClients = 2LO \u2713"]] },
+      { legend:[6], code:"# Gateway target 'reporting' (credentialProviderType = GATEWAY_IAM_ROLE)\n# rsidc-gateway-role: lambda:InvokeFunction on arn:aws:lambda:...:function:rsidc-reporting", t:"Gateway OUTBOUND auth: IAM role", d:"The Gateway uses its IAM role (<code>lambda:InvokeFunction</code> on <code>rsidc-reporting</code> only).",
+        a:[["move",[7],false,"IAM invoke (Gateway role)",C.data],["badge","gw","info","outbound: GATEWAY_IAM_ROLE"]] },
+      { legend:[7], code:"# lambda/reporting/handler.py\nboto3.client(\"redshift-data\").execute_statement(\n    ClusterIdentifier=\"rsidc-cluster\", Database=\"dev\",\n    DbUser=\"svc_reporting\",       # GetClusterCredentials on this one user\n    Sql=\"SELECT TRIM(current_user), order_id, region, customer_email, amount FROM sales.orders\")", t:"Lambda queries Redshift as a service user \u2192 everyone sees the same", d:"The Data API runs as <b>svc_reporting</b>. wei, zhang and even <b>ds1 (no grants)</b> all receive <b>5 rows including customer_email</b>. Compare OBO: zhang 2 rows, ds1 denied.",
+        a:[["move",[8],false,"DbUser svc_reporting",C.data],["badge","redshift","warn","session = svc_reporting (shared)"],["move",[8, 7, 6],true,"5 rows + PII",C.deny],["move",[3],true,"same answer for everyone",C.deny]] },
     ]},
-  "3lo": { svg:"svg-oauth", title:"3LO: user consents once; AgentCore Identity keeps the user's token in the Token Vault",
-    nodes:{ users:["End users",0], identity:["Amazon Bedrock AgentCore",0], agent:["Amazon Bedrock AgentCore",1], gw:["Amazon Bedrock AgentCore",2],
-            fn:["AWS Lambda",0], cognito:["Amazon Cognito",0], redshift:["Amazon Redshift",0] },
+  "3lo": { svg:"svg-3lo", title:"3LO: the user consents once; AgentCore Identity keeps the user's token in the Token Vault",
+    nodes:{ users:["End users (browser)",0], gui:["2LO/3LO Web GUI",0], cognito:["Amazon Cognito",0],
+            identity:["Amazon Bedrock AgentCore",0], agent:["Amazon Bedrock AgentCore",1] },
     steps:[
-      { legend:[1], t:"App sign-in", d:"<b class='login'>LOGIN 1/2</b>The user signs in to the app. The ID token (JWT) identifies them to the agent.",
-        a:[["badge","users","login","LOGIN 1 · app sign-in"],["move",[1],false,"username + password",C.login],["move",[1],true,"ID token (JWT)",C.jwt]] },
-      { legend:[1], t:"Invoke the agent", d:"The JWT authorizer validates the token. The runtime gets a WAT bound to (agent, wei).",
-        a:[["move",[0],false,"Bearer JWT",C.jwt],["badge","agent","ok","JWT valid → WAT (agent+wei)"]] },
-      { legend:[2], t:"No token in the vault yet → consent URL", d:"<code>GetResourceOauth2Token(USER_FEDERATION)</code> finds nothing for (agent, wei) and returns an <b>authorization URL + sessionUri</b>. The agent hands the URL to the user.",
-        a:[["move",[2],false,"WAT · USER_FEDERATION",C.jwt],["badge","identity","info","vault empty for (agent, wei)"],["move",[2],true,"consent URL + sessionUri",C.data],["move",[0],true,"consent URL",C.data]] },
-      { legend:[3], t:"User consents at Cognito", d:"<b class='login'>LOGIN 2/2</b>The user opens the URL and signs in on <b>Cognito managed login</b>; PKCE and state are added by AgentCore. Cognito redirects the code to the <b>AgentCore Identity callback</b>, which exchanges it for the user's token.",
-        a:[["badge","users","login","LOGIN 2 · consent at Cognito"],["move",[1],false,"sign in + consent",C.login],["jump","cognito","identity","auth code → AgentCore callback",C.data],["badge","identity","info","code → user token (pending)"]] },
-      { legend:[3], t:"Session binding", d:"AgentCore redirects the browser to the app's return URL (<code>?session_id=…</code>). The app calls <code>CompleteResourceTokenAuth(sessionUri, user JWT)</code>. Only the user who started the flow can complete it; completing zhang's session with wei's JWT is rejected.",
-        a:[["jump","identity","users","redirect → app return URL",C.data],["jump","users","identity","CompleteResourceTokenAuth (user JWT)",C.jwt],["badge","identity","ok","same user ✓ → Token Vault (agent, wei)"]] },
-      { legend:[2,4], t:"Next call: token comes from the vault", d:"New runtime session, no consent needed. The vault returns <b>wei's own access token</b>. The agent's <b>identity guard</b> checks that the token's email equals the caller's; this blocks the shared-browser risk.",
-        a:[["move",[0],false,"Bearer JWT (new session)",C.jwt],["move",[2],false,"GetResourceOauth2Token",C.jwt],["move",[2],true,"user token (from vault)",C.vault],["badge","agent","ok","guard: token email == caller ✓"]] },
-      { legend:[4], t:"Call the user's API with their token", d:"The agent calls Cognito <code>userInfo</code> with the user token and gets back wei's own profile. Each user only ever gets their own token.",
-        a:[["jump","agent","cognito","userInfo · Bearer user token",C.vault],["jump","cognito","agent","wei's profile",C.data],["move",[0],true,"answer",C.data]] },
+      { legend:[1], code:"# webchat/oauth_app.py /callback (PKCE, public OBO client)\nPOST https://rsidc-383386985941.auth.ap-southeast-1.amazoncognito.com/oauth2/token\n  grant_type=authorization_code  client_id=kff7mg63m7d94n6f2euip41na\n  code=<code>  redirect_uri=http://localhost:8081/callback  code_verifier=<verifier>\n# -> id_token (JWT)", t:"App sign-in (LOGIN 1/2)", d:"<b class='login'>LOGIN 1/2</b>The user opens the 2LO/3LO Web GUI (<code>http://localhost:8081</code>) and signs in at Cognito managed login. The GUI exchanges the code for the ID token and keeps it server-side.",
+        a:[["badge","users","login","LOGIN 1 \u00b7 app sign-in"],["move",[0],false,"open localhost:8081",C.data],["move",[1],false,"username + password",C.login],["move",[1],true,"code \u2192 GUI \u2192 ID token",C.jwt],["badge","gui","info","JWT kept server-side"]] },
+      { legend:[2], code:"POST https://bedrock-agentcore.ap-southeast-1.amazonaws.com/runtimes/<rsidc_oauth_agent ARN>/invocations\n  Authorization: Bearer <id_token>\n# agent_oauth/main.py\nwat = BedrockAgentCoreContext.get_workload_access_token()   # bound to (agent, wei)", t:"Runtime INBOUND auth: Cognito JWT", d:"The runtime's JWT authorizer validates the user's <b>Cognito ID token</b> (discovery = Cognito pool, audience = OBO client). The runtime gets a WAT bound to (agent, wei).",
+        a:[["move",[2],false,"Bearer JWT",C.jwt],["badge","agent","ok","inbound: Cognito JWT \u2713 \u2192 WAT (agent+wei)"]] },
+      { legend:[3], code:"# agent_oauth/main.py\nr = boto3.client(\"bedrock-agentcore\").get_resource_oauth2_token(\n    workloadIdentityToken=wat, resourceCredentialProviderName=\"rsidc-3lo-cognito\",\n    scopes=[\"openid\", \"email\", \"profile\"], oauth2Flow=\"USER_FEDERATION\",\n    resourceOauth2ReturnUrl=\"http://localhost:8081/3lo/callback\")\n# -> r[\"authorizationUrl\"], r[\"sessionUri\"]  (valid 10 min)", t:"Runtime OUTBOUND auth via AgentCore Identity: no token yet \u2192 consent URL", d:"<code>GetResourceOauth2Token(USER_FEDERATION)</code> finds nothing for (agent, wei), so it returns an <b>authorization URL + sessionUri</b> that goes back to the user.",
+        a:[["move",[3],false,"GetResourceOauth2Token(USER_FEDERATION)",C.jwt],["badge","identity","info","outbound broker · vault empty for (agent, wei)"],["move",[3],true,"consent URL + sessionUri",C.data],["move",[2],true,"consent URL",C.data],["move",[0],true,"open consent URL",C.data]] },
+      { legend:[4], code:"GET <authorizationUrl>  -> Cognito managed login (code + PKCE + state)\nCognito -> https://bedrock-agentcore.ap-southeast-1.amazonaws.com\n           /identities/oauth2/callback/9cb308bc-...   (3LO client callback URL)\n# AgentCore Identity exchanges the code with client 4mrecmrv4divtcngq62to3run1", t:"User consents at Cognito (LOGIN 2/2)", d:"<b class='login'>LOGIN 2/2</b>The user signs in at Cognito managed login (PKCE and state are added by AgentCore). Cognito sends the code to the <b>AgentCore Identity callback</b>, which exchanges it with the 3LO client.",
+        a:[["badge","users","login","LOGIN 2 \u00b7 consent at Cognito"],["move",[1],false,"sign in + consent",C.login],["move",[4],false,"auth code \u2192 AgentCore callback",C.data],["badge","identity","info","code \u2192 user token (pending)"]] },
+      { legend:[5], code:"# webchat/oauth_app.py  /3lo/callback?session_id=<sessionUri>\nboto3.client(\"bedrock-agentcore\").complete_resource_token_auth(\n    sessionUri=session_uri,\n    userIdentifier={\"userToken\": user_id_token})   # the signed-in app user\n# wrong user's JWT -> AccessDeniedException", t:"Session binding by the app", d:"AgentCore redirects the browser to the app's return URL. The GUI calls <code>CompleteResourceTokenAuth(sessionUri, user JWT)</code>. Only the user who started the flow can complete it; completing zhang's session with wei's JWT is rejected.",
+        a:[["move",[0],false,"redirect \u2192 /3lo/callback",C.data],["move",[5, 6, 7],false,"CompleteResourceTokenAuth (user JWT)",C.jwt],["badge","identity","ok","same user \u2713 \u2192 Token Vault (agent, wei)"]] },
+      { legend:[6], code:"r = identity.get_resource_oauth2_token(..., sessionUri=session_uri)   # same params\nuser_token = r[\"accessToken\"]\nif userinfo(user_token)[\"email\"] != caller_email:\n    return {\"status\": \"IDENTITY_MISMATCH\"}      # shared-browser guard", t:"Next call: the user's token comes from the vault", d:"No consent needed, in any runtime session. The vault returns <b>wei's own token</b>, and the agent's <b>identity guard</b> checks that the token's email equals the caller's.",
+        a:[["move",[2],false,"Bearer JWT (new session)",C.jwt],["move",[3],false,"GetResourceOauth2Token",C.jwt],["move",[3],true,"user token (from vault)",C.vault],["badge","agent","ok","guard: token email == caller \u2713"]] },
+      { legend:[7], code:"GET https://rsidc-383386985941.auth.ap-southeast-1.amazoncognito.com/oauth2/userInfo\n  Authorization: Bearer <user_token>\n# -> {\"username\": \"wei\", \"email\": \"wei@techfinance.example.com\", ...}", t:"Call the user's API with their token", d:"The agent calls Cognito <code>userInfo</code> with the user token. <b>Cognito itself validates that token</b> (there is no Gateway in 3LO) and returns wei's own profile.",
+        a:[["move",[8],false,"userInfo \u00b7 Bearer user token",C.vault],["badge","cognito","ok","validates the user token itself"],["move",[8],true,"wei's profile",C.data],["move",[2],true,"answer",C.data]] },
     ]},
 };
 
@@ -217,6 +225,8 @@ async function runStep(i, id) {
   const sc = S[cur], st = sc.steps[i], svg = svgOf(cur);
   clearLayer(svg); legend(svg, st.legend);
   document.getElementById("caption").innerHTML = `<b class="h">Step ${i + 1}/${sc.steps.length}: ${st.t}</b>${st.d}`;
+  const esc = t => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  document.getElementById("code").innerHTML = st.code ? st.code.split("\n").map(l => /^\s*#/.test(l) ? `<span class="c">${esc(l)}</span>` : esc(l)).join("\n") : "(no code: see caption)";
   [...document.querySelectorAll("#steps li")].forEach((li, k) => { li.classList.toggle("on", k === i); li.classList.toggle("done", k < i); });
   for (const a of st.a) {
     if (a[0] === "move") await move(svg, a[1], a[2], a[3], a[4], id);
@@ -236,12 +246,11 @@ function setPlay(v) { playing = v; document.getElementById("play").textContent =
 function select(s) {
   runId++; setPlay(false); cur = s; idx = -1;
   document.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("on", b.dataset.s === s));
-  document.getElementById("svg-obo").style.display = S[s].svg === "svg-obo" ? "" : "none";
-  document.getElementById("svg-oauth").style.display = S[s].svg === "svg-oauth" ? "" : "none";
+  ["svg-obo", "svg-2lo", "svg-3lo"].forEach(id => document.getElementById(id).style.display = S[s].svg === id ? "" : "none");
   document.getElementById("title").textContent = S[s].title;
   document.getElementById("steps").innerHTML = S[s].steps.map((st, k) => `<li data-k="${k}">${st.t}</li>`).join("");
   document.querySelectorAll("#steps li").forEach(li => li.onclick = () => { setPlay(false); go(+li.dataset.k); });
-  const svg = svgOf(s); clearLayer(svg); legend(svg, null);
+  const svg = svgOf(s); clearLayer(svg); legend(svg, null); document.getElementById("code").textContent = "—";
   document.getElementById("caption").innerHTML = `<b class="h">Press ▶ Play</b>${S[s].steps.length} steps. Orange <b style="display:inline;color:#ff9900">LOGIN</b> markers show where the user must sign in.`;
 }
 document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => select(b.dataset.s));

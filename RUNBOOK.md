@@ -465,7 +465,22 @@ URL at capture (2026-10-05 15:54:45 HKT): <https://ap-southeast-1.console.aws.am
 
 Goal: compare the other AgentCore Identity outbound patterns with OBO on the same Redshift data. The OBO runtime (`rsidc_data_agent`, version 3) and its tests are **not modified**; a **separate** runtime is used.
 
-![2LO/3LO architecture](docs/architecture-2lo-3lo.svg)
+**2LO architecture** (the agent authenticates as itself → Gateway → service account):
+
+![2LO architecture](docs/architecture-2lo.svg)
+
+**3LO architecture** (the user consents once → Token Vault, session binding by the app):
+
+![3LO architecture](docs/architecture-3lo.svg)
+
+**Who authenticates what (2LO / 3LO):**
+
+| Component | Inbound auth (who may call it, validated how) | Outbound auth (what it uses downstream) |
+|---|---|---|
+| AgentCore Runtime `rsidc_oauth_agent` | **Cognito JWT**: the user's ID token (discovery = Cognito pool, audience = OBO client) | **AgentCore Identity**: 2LO `rsidc-2lo-cognito` (M2M) / 3LO `rsidc-3lo-cognito` (Token Vault) |
+| AgentCore Identity | The runtime's workload access token + IAM role; for 3LO, the app's `CompleteResourceTokenAuth` | Cognito token endpoint (client_credentials / authorization code) |
+| AgentCore Gateway (2LO) | **Cognito JWT**: the M2M token from the same pool (JWKS), allowedClients = 2LO client. **Not** AgentCore Identity. | Gateway IAM role (`GATEWAY_IAM_ROLE`) → Lambda |
+| Cognito `userInfo` (3LO) | The user's access token, validated by Cognito itself | - |
 
 ## Step 9: Cognito OAuth clients (same pool, OBO client untouched)
 `infra/run.sh ./infra/09-cognito-oauth-clients.sh`
@@ -633,3 +648,39 @@ The script scans every region and sets `AllowAdminCreateUserOnly=true` wherever 
 **Verify:**
 - `--dry-run` reports 0 pools remaining.
 - A `SignUp` call against `us-east-1_67YaKCmhR` (with a valid SECRET_HASH) and against `rsidc-users` both fail with `NotAuthorizedException: SignUp is not permitted for this user pool`.
+
+## Step 14: deploy the web GUIs to AWS (Lambda Function URLs, IP-allowlisted)
+**Purpose:** let you use the OBO GUI and the 2LO/3LO GUI without running anything locally. Function URLs provide HTTPS, which Cognito requires for any callback that isn't localhost. There's no EC2, ALB or S3.
+```bash
+infra/run.sh bash infra/14-deploy-webchat.sh            # optional: WEB_ALLOWED_IPS="1.2.3.4/32 2400:db8::/64"
+```
+**What it creates or changes:**
+- IAM role `rsidc-webchat-role` (logs, plus `CompleteResourceTokenAuth` for the 3LO binding);
+- Lambda functions `rsidc-webchat-obo` and `rsidc-webchat-oauth` (python3.12, arm64, reserved concurrency 1, Function URL with AuthType NONE, app-level source-IP allowlist);
+- the Function URL callback and logout URLs, added to the OBO Cognito client (through step 13);
+- `<oauth-url>/3lo/callback`, added to the OAuth workload identity return URLs.
+
+**Actual result (2026-10-06):**
+```
+allowlisted IPs: 63.218.115.74/32 2400:8800:102:2::/64
+OBO GUI:     https://e635jo6ewg4nrmyklrjy3qsymq0cbjbo.lambda-url.ap-southeast-1.on.aws
+2LO/3LO GUI: https://2swszkbddcrowwcmgqzn3mw7ca0bpjia.lambda-url.ap-southeast-1.on.aws
+```
+The first deploy allowlisted IPv4 only, and the browser got `403 forbidden: 2400:8800:102:2:… is not allowlisted`. The Function URL is dual-stack, so the client connected over IPv6. The fix was to allow CIDRs and add the IPv6 /64.
+
+**How you can verify:**
+```bash
+source infra/state.env
+curl -s -o /dev/null -w "%{http_code}\n" $WEB_OBO_URL/        # 200 from an allowlisted IP
+curl -s -o /dev/null -w "%{http_code}\n" $WEB_OAUTH_URL/      # 200
+echo '{"rawPath":"/","headers":{},"requestContext":{"http":{"method":"GET","sourceIp":"9.9.9.9"}}}' > /tmp/ev.json
+aws lambda invoke --region ap-southeast-1 --function-name rsidc-webchat-obo --cli-binary-format raw-in-base64-out --payload file:///tmp/ev.json /tmp/o.json; cat /tmp/o.json   # 403 not allowlisted
+```
+Then open the OBO URL in a browser and sign in as wei/zhang/chen/ds1 (passwords in `tests/.users.env`).
+**Teardown:**
+```bash
+aws lambda delete-function --function-name rsidc-webchat-obo --region ap-southeast-1
+aws lambda delete-function --function-name rsidc-webchat-oauth --region ap-southeast-1
+```
+Also delete the role `rsidc-webchat-role`.
+**Cost:** effectively $0 (Lambda pay-per-request; no idle charge).
