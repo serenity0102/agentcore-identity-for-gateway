@@ -29,3 +29,6 @@ tests/*entra*
 tests/results/*entra*
 tests/totp.py
 webchat/entra_*
+
+# test results: kept local only (not published)
+tests/results/

@@ -1,3 +1,9 @@
+## [2026-10-21] tests/results/ kept local only
+- **改了什么**：`tests/results/` 加入 .gitignore 并 `git rm --cached`；本地文件不动
+- **为什么改**：用户要求测试结果不上 GitHub
+- **涉及文件/资源**：.gitignore；GitHub serenity0102/agentcore-identity-for-gateway
+- **结果**：GitHub tree 中无 tests/results/
+
 ## [2026-10-21] Entra ID setup removed from GitHub (kept locally)
 - **改了什么**：`agent_entra/`、`RUNBOOK-entra-id.md`、`infra/*entra*`（18/19/20 脚本、policies、registry）、Entra tests 和结果、`tests/totp.py`、`webchat/entra_*` 加入 .gitignore 并 `git rm --cached`；本地文件不动；README 注明 Entra 部分 local only
 - **为什么改**：用户要求 GitHub 上不放 Entra ID 相关 setup

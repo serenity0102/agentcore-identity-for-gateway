@@ -1,4 +1,0 @@
-wei initialize 200 {"protocolVersion": "2025-03-26", "capabilities": {"tools": {"listChanged": false}, "prompts": {"listChanged": false}, "resources": {"listChanged": false}}, "se
-wei tools/list 200 2 tools
-chen initialize 200 {"protocolVersion": "2025-03-26", "capabilities": {"tools": {"listChanged": false}, "prompts": {"listChanged": false}, "resources": {"listChanged": false}}, "se
-chen tools/list 200 0 tools
