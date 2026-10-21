@@ -1,3 +1,9 @@
+## [2026-10-21] New data/ folder for the assets the repo links to
+- **改了什么**：把 RUNBOOK 和脚本引用的 34 个文件从 docs/ 移到 data/（6 张架构 SVG、flow.html / flow-rbac.html 及其 build 源、data-views.*、quick-mcp-connector.md、19 张 console 截图 + manifest、IdC 截图），新增 data/README.md；所有引用 `docs/<file>` 改为 `data/<file>`（RUNBOOK-cognito-idc.md、tests/render_data_views.py 输出目录、本地 decks / email-draft / entra runbook / docs/build_console_shots.py）
+- **为什么改**：docs/ 不上 GitHub，runbook 里的图片和链接在 GitHub 上是坏的
+- **涉及文件/资源**：data/**, RUNBOOK-cognito-idc.md, tests/render_data_views.py, docs/README.md
+- **结果**：发布文件里的相对链接全部能找到目标；`python3 data/build_flow.py` 重建成功；已推送 GitHub
+
 ## [2026-10-21] webchat: app.py → obo_app.py; Entra README split out
 - **改了什么**：`git mv webchat/app.py webchat/obo_app.py`，更新 14-deploy-webchat.sh（打包列表、`WEBCHAT_APP=obo_app`）、lambda_adapter 注释、runbook；webchat/README.md 的 Entra 内容移到 `webchat/README-entra-id.md`（gitignored）
 - **为什么改**：命名与 oauth_app / rbac_app 对齐；Entra 内容只留本地

@@ -1,8 +1,8 @@
 """Render the data-access evidence (admin full data + per-persona views from results-data-views.json)
-as Markdown (RUNBOOK-cognito-idc.md, Part 4 · OBO, Step 5) and HTML (email) fragments: docs/data-views.md, docs/data-views.html."""
+as Markdown (RUNBOOK-cognito-idc.md, Part 4 · OBO, Step 5) and HTML (email) fragments: data/data-views.md, data/data-views.html."""
 import html, json, os, time, boto3
 
-D = os.path.dirname(os.path.abspath(__file__)); DOCS = os.path.join(D, "..", "docs")
+D = os.path.dirname(os.path.abspath(__file__)); DOCS = os.path.join(D, "..", "data")
 rs = boto3.Session(profile_name="default").client("redshift-data", region_name=os.environ["IDC_REGION"])
 
 def admin(sql):
@@ -59,4 +59,4 @@ rows = "".join(f"<tr><td>{u} ({GROUP[u]})</td><td><code>{html.escape(views[u]['r
 h.append("<table><tr><th>Persona (IdC group)</th><th>Redshift session user</th>" + "".join(f"<th>{q.split(' ')[0]}</th>" for q in qs) + "</tr>" + rows + "</table>")
 h.append('<p class="small" style="margin:6px 0 2px"><b>zhang: <code>SELECT * FROM sales.orders</code></b>. RLS keeps only APAC rows, and the column grant <b>silently drops <code>customer_email</code></b> from <code>SELECT *</code>; naming the column explicitly returns <code>42501 permission denied</code>.</p>' + html_table(z["columns"], z["rows"]))
 open(os.path.join(DOCS, "data-views.html"), "w").write("\n".join(h))
-print("wrote docs/data-views.md and docs/data-views.html")
+print("wrote data/data-views.md and data/data-views.html")
