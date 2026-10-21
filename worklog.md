@@ -2,7 +2,7 @@
 - **改了什么**：`git mv webchat/app.py webchat/obo_app.py`，更新 14-deploy-webchat.sh（打包列表、`WEBCHAT_APP=obo_app`）、lambda_adapter 注释、runbook；webchat/README.md 的 Entra 内容移到 `webchat/README-entra-id.md`（gitignored）
 - **为什么改**：命名与 oauth_app / rbac_app 对齐；Entra 内容只留本地
 - **涉及文件/资源**：webchat/obo_app.py, webchat/README.md, webchat/README-entra-id.md, infra/14-deploy-webchat.sh, .gitignore, RUNBOOK-*.md
-- **结果**：本地 obo_app.py 启动返回 200；已部署的 Lambda 不受影响（下次跑 14-deploy-webchat.sh 时切到 obo_app）
+- **结果**：用 lambda_adapter（WEBCHAT_APP=obo_app）请求 GET / 返回 200；已部署的 Lambda 不受影响（下次跑 14-deploy-webchat.sh 时切到 obo_app）
 
 ## [2026-10-21] tests/results/ kept local only
 - **改了什么**：`tests/results/` 加入 .gitignore 并 `git rm --cached`；本地文件不动
