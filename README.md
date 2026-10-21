@@ -4,7 +4,7 @@ Validates that an **AgentCore Runtime** data agent querying/updating **Amazon Re
 **IAM Identity Center** access control end to end, via trusted identity propagation, with network access to Redshift restricted to the operator IP and the runtime egress IP.
 
 - `RUNBOOK-cognito-idc.md`: Cognito + IAM Identity Center, in four parts: Part 1 · Amazon Quick → Gateway (3LO by Quick), Part 2 · 3LO, Part 3 · 2LO, Part 4 · OBO (with per-user Gateway tool RBAC). Each step is collapsible.
-- `RUNBOOK-entra-id.md`: the same three patterns with Microsoft Entra ID. **Local only:** it holds the Entra test-user passwords, so it's gitignored and not in the repo.
+- `RUNBOOK-entra-id.md`: the same three patterns with Microsoft Entra ID. Test-user passwords are not in it: read them from `tests/.entra-users.env` (gitignored).
 - `infra/`: idempotent provisioning scripts (`01`…`08`, `99-teardown`), IAM policies and SQL.
 - `agent/`: the OBO data agent (Part 1) deployed to AgentCore Runtime.
 - `agent_oauth/` + `lambda/`: the separate 2LO/3LO agent and the Gateway reporting Lambda (Part 2).

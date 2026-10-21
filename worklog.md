@@ -1,3 +1,9 @@
+## [2026-10-21] Publish RUNBOOK-entra-id.md without passwords
+- **改了什么**：RUNBOOK-entra-id.md 的 Demo access 表格密码列改为指向 `tests/.entra-users.env`；带密码版本另存为 RUNBOOK-entra-id.local.md（gitignored）；README 说明同步更新
+- **为什么改**：用户要求把 Entra runbook 推到 GitHub，但不公开测试用户密码
+- **涉及文件/资源**：RUNBOOK-entra-id.md, RUNBOOK-entra-id.local.md, .gitignore, README.md
+- **结果**：脚本比对 tests/.entra-users.env，确认 RUNBOOK-entra-id.md 中无密码；已推送 GitHub
+
 ## [2026-10-21] Entra GUI 网址和账号写进 RUNBOOK-entra-id.md 和三份 deck
 - **改了什么**：
   - `RUNBOOK-entra-id.md` 目录之后加了「Demo access」一节，直接显示：Entra demo GUI 和 RBAC GUI 的 Entra 卡片、4 个 Entra 用户和密码、MFA 方法、每个用户的预期结果；

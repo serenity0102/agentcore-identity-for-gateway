@@ -13,8 +13,8 @@ tests/.entra-agent.env
 tests/.entra-totp.env
 # demo decks contain test-user passwords (internal only)
 docs/AgentCore-Identity-*.pptx
-# contains Entra test-user passwords (internal only)
-RUNBOOK-entra-id.md
+# local copy WITH Entra test-user passwords (internal only)
+RUNBOOK-entra-id.local.md
 # kept local only (not published)
 docs/
 history/
