@@ -27,7 +27,7 @@ Used by all four parts.
 | 4 | [Step 2 · Cognito user pool (end-user IdP)](#shared-step-2) | admin-create-only pool + OBO app client + 4 users | pool ap-southeast-1_kSVpAo5yl, client kff7mg63m7d94n6f2euip41na |
 | 5 | [Ops · admin-only user creation on ALL Cognito pools](#shared-ops) | enforce AllowAdminCreateUserOnly everywhere | 41 pools scanned, 6 fixed |
 | 6 | [Step 14 · Web GUIs on AWS (API Gateway HTTP API → Lambda)](#shared-step-14) | use the GUIs without running anything locally | OBO GUI 604penmkc9 · 2LO/3LO GUI k9vfijvbu9 |
-| 7 | [Cost (approximate, while running)](#shared-cost) | what is billed while the PoC runs | ≈ $0.72/hour |
+| 7 | [Cost (what is billed while running)](#shared-cost) | what is billed while the PoC runs | Redshift and NAT bill per hour; check AWS Pricing |
 
 _Click a step to expand its commands, actual results and verification._
 
@@ -181,23 +181,23 @@ for f in obo oauth; do
 done
 ```
 Also delete the role `rsidc-webchat-role`.
-**Cost:** effectively $0: HTTP API $1.00 per million requests, plus Lambda per request.
+**Cost:** billed per request (HTTP API and Lambda); no idle cost.
 
 </details>
 
 <a name="shared-cost"></a>
-<details id="shared-cost"><summary><b>Cost (approximate, while running)</b> · result: ≈ $0.72/hour</summary>
+<details id="shared-cost"><summary><b>Cost (what is billed while running)</b> · result: Redshift and NAT bill per hour; check AWS Pricing</summary>
 
-| Resource | ~USD/hour |
+| Resource | How it's billed |
 |---|---|
-| Redshift ra3.large ×1 (ap-east-1) | ~0.65 |
-| NAT Gateway + EIP (ap-southeast-1) | ~0.065 + data |
-| AgentCore Runtime | consumption only (pennies for these tests) |
+| Redshift ra3.large ×1 (ap-east-1) | per node-hour while the cluster exists (the largest cost) |
+| NAT Gateway + EIP (ap-southeast-1) | per hour, plus per GB processed |
+| AgentCore Runtime | consumption only |
 | Bedrock (Claude) | per token (N4 tests only) |
-| 2LO/3LO: Gateway, Lambda, 2nd runtime, credential providers | consumption only (≈0 at test volume) |
-| Cognito, IdC, S3, Secrets Manager | ≈0 |
+| 2LO/3LO: Gateway, Lambda, 2nd runtime, credential providers | consumption only |
+| Cognito, IdC, S3, Secrets Manager | per user / request / GB / secret; small at test volume |
 
-**About $0.72/hour, or roughly $17/day.** Tear down when you're done.
+Redshift and the NAT gateway are billed for every hour they exist, even when idle. For current prices see [Amazon Redshift pricing](https://aws.amazon.com/redshift/pricing/) and [Amazon VPC pricing](https://aws.amazon.com/vpc/pricing/), or estimate with the [AWS Pricing Calculator](https://calculator.aws/). **Tear down when you're done.**
 
 </details>
 
@@ -1392,7 +1392,7 @@ Then delete the IAM roles `rsidc-rbac-gateway-role` and `rsidc-pretoken-roles-ro
 
 Finally, delete only the two project-owned IdC groups `rsidc-gw-analyst` and `rsidc-gw-viewer` (ap-east-1, `identitystore delete-group`; their memberships go with them). Don't touch the pre-existing groups.
 
-**Cost:** effectively $0 at test volume. Gateway, Policy and Lambda bill per request, and the Cognito trigger is a Lambda invocation per sign-in. The pool was already on the ESSENTIALS tier, so there's no new tier cost.
+**Cost:** billed per request. Gateway, Policy and Lambda bill per request, and the Cognito trigger is a Lambda invocation per sign-in. The pool was already on the ESSENTIALS tier, so there's no new tier cost.
 
 </details>
 
@@ -1501,7 +1501,7 @@ rm -f tests/.quick-client.env
 - **IAM:** delete the roles `rsidc-mall-gateway-role` and `rsidc-mall-tools-role` (remove their inline policies first).
 - **Quick:** delete the integration you created there.
 - **Trigger:** it is shared with the Gateway RBAC demo. Remove it with that demo's teardown (`15-rbac-pretoken.py --detach`).
-- **Cost:** effectively $0 at test volume. Gateway, Policy and Lambda bill per request; there's no idle cost.
+- **Cost:** Gateway, Policy and Lambda bill per request; there's no idle cost.
 
 </details>
 

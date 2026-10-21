@@ -1,3 +1,9 @@
+## [2026-10-21] Remove specific cost figures
+- **改了什么**：README.md、RUNBOOK-cognito-idc.md（总览表、Cost 表、各 part 的 Cost 行）和 worklog.md 中的具体金额全部删除；Cost 表改为「每个资源怎么计费」，并链接 AWS Pricing Calculator 和 Redshift / VPC 定价页
+- **为什么改**：金额可能算错，也会随 Region 和价格变化
+- **涉及文件/资源**：README.md, RUNBOOK-cognito-idc.md, worklog.md
+- **结果**：发布文件中搜索 `$<数字>` / USD 无金额；已推送 GitHub
+
 ## [2026-10-21] infra/README: how to install the test environment
 - **改了什么**：infra/README.md 加「Install the test environment」（venv → 01–08 OBO → 09–12 2LO/3LO → 13–14 GUI → 15 RBAC → 16 Quick → 17 Registry → teardown，每段附验证命令），并补充前置条件（IdC 用户/组且 email 对应、工具、macOS sed）；README.md 加 Install 段指向 infra/README.md；修正 runbook 里遗留的 `cd agent`
 - **为什么改**：让别人可以从零安装整个测试环境
@@ -11,7 +17,7 @@
 - **结果**：bash -n / py_compile 通过；所有打包路径存在；没有残留的旧路径；已部署的 Lambda 不受影响
 
 ## [2026-10-21] README: cost, teardown reminder and disclaimer
-- **改了什么**：README.md 新增「Cost and disclaimer」：会产生费用（约 $0.72/小时）、用完要 teardown（99-teardown.sh + 各 part 的 teardown）、费用和安全由使用者自行负责
+- **改了什么**：README.md 新增「Cost and disclaimer」：会产生费用、用完要 teardown（99-teardown.sh + 各 part 的 teardown）、费用和安全由使用者自行负责
 - **为什么改**：repo 准备公开，提醒使用者成本和责任
 - **涉及文件/资源**：README.md
 - **结果**：已推送 GitHub
@@ -354,4 +360,4 @@
 - **改了什么**：新建 runtime VPC（NAT EIP 47.131.152.68）、Cognito user pool、IdC Trusted Token Issuer + Redshift IdC app（AWSIDC）、Redshift ra3.large（SG 仅允许工作站 2 个出口 IP + runtime EIP）、IdC 客户托管应用（token exchange）、AgentCore Runtime 数据 agent（VPC 模式、Cognito JWT 入站认证）；编写 16 项权限矩阵与负向/网络测试
 - **为什么改**：验证 agent 访问 Redshift 时是否遵循 IdC 用户/组的访问控制，并限制网络来源
 - **涉及文件/资源**：`infra/01-08,99`、`agent/`、`tests/`、`RUNBOOK.md`；Redshift `rsidc-cluster`（ap-east-1）、AgentCore `rsidc_data_agent-BoemCIApSW`（ap-southeast-1）、Cognito `ap-southeast-1_kSVpAo5yl`、IdC apps `apl-7158c218c69d902a` / `apl-7158676c1128adac`
-- **结果**：矩阵 16/16 通过；无 token/伪造 token 401；JWT 重放被拒；SG 撤销后工作站超时；修复 2 个问题（history/001、002）。运行成本约 $0.72/小时，用完执行 `infra/99-teardown.sh`
+- **结果**：矩阵 16/16 通过；无 token/伪造 token 401；JWT 重放被拒；SG 撤销后工作站超时；修复 2 个问题（history/001、002）。会产生运行成本，用完执行 `infra/99-teardown.sh`
