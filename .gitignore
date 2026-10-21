@@ -33,3 +33,8 @@ webchat/entra_*
 # test results: kept local only (not published)
 tests/results/
 webchat/README-entra-id.md
+
+# local notes / state: not published
+/state.env
+/tasks.txt
+worklog.md

@@ -1,3 +1,9 @@
+## [2026-10-21] state.env / tasks.txt / worklog.md kept local only
+- **改了什么**：根目录 `state.env`、`tasks.txt`（都是空文件）和 `worklog.md` 加入 .gitignore 并从 GitHub 移除；`infra/state.env` 原本就已忽略
+- **为什么改**：本地状态和工作记录不公开
+- **涉及文件/资源**：.gitignore
+- **结果**：GitHub tree 中没有这三个文件；本地文件保留
+
 ## [2026-10-21] Tooling venv moved to the project root
 - **改了什么**：新增根目录 `requirements.txt`（boto3、requests，即 infra/tests/webchat 实际用到的第三方包）和根目录 `.venv`；27 个文件里的 `agent_obo/.venv` 改为 `.venv`（脚本里 `$ROOT/.venv`，tests 里 `../.venv`）；infra/README 第 0 步、runbook 前置条件、README 更新；删除旧的 `agent_obo/.venv`
 - **为什么改**：agent_obo/ 只属于 OBO agent；运维工具的环境不应放在里面。Agent 的运行依赖仍由 08/12 单独打包
