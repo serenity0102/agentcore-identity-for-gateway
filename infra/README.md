@@ -10,7 +10,8 @@ Provisioning for the PoC. Run every script through `./run.sh` (it loads `00-conf
 - **Deployment uses a named AWS CLI profile.** Set `AWS_PROFILE` in `00-config.sh` (default: `default`) to a profile in `~/.aws/config` with permissions to create the resources (IAM, VPC, Cognito, Redshift, AgentCore, Lambda, API Gateway). Check it with `aws sts get-caller-identity --profile <name>`.
 - `ACCOUNT_ID` is looked up from that profile (`aws sts get-caller-identity`), so you don't set it.
 
- regions, IdC instance, names and operator IPs. `save` persists resource IDs to `state.env` (gitignored).
+## Files
+- `00-config.sh`: regions, IdC instance, names and operator IPs. `save` persists resource IDs to `state.env` (gitignored).
 - `01`–`08`: numbered, idempotent steps. Re-running one is safe. See `../RUNBOOK-cognito-idc.md` for the order and expected output.
 - `99-teardown.sh`: deletes everything the steps created. It never touches the pre-existing IdC instance, users or groups.
 - `policies/`: IAM trust and permission documents. `sql/`: admin seed data, grants to IdC group roles, RLS.
