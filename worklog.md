@@ -1,3 +1,9 @@
+## [2026-10-21] README: cost, teardown reminder and disclaimer
+- **改了什么**：README.md 新增「Cost and disclaimer」：会产生费用（约 $0.72/小时）、用完要 teardown（99-teardown.sh + 各 part 的 teardown）、费用和安全由使用者自行负责
+- **为什么改**：repo 准备公开，提醒使用者成本和责任
+- **涉及文件/资源**：README.md
+- **结果**：已推送 GitHub
+
 ## [2026-10-21] Mask AWS account ID before making the repo public; IdC prerequisites
 - **改了什么**：发布文件中的账号 ID 全部替换为 `123456789012`（14 个文本文件：runbook、SVG、flow HTML、registry JSON 等）；`infra/00-config.sh` 的 `ACCOUNT_ID` 改为用 `aws sts get-caller-identity` 查询；20 张 console 截图用 macOS Vision OCR 定位账号 ID、ARN 和 Isengard 角色并涂黑，右上角账号区域统一涂黑；infra/README.md 加 Prerequisites（需已有 IAM Identity Center，并在 00-config.sh 填 IDC_INSTANCE_ARN / IDENTITY_STORE_ID）
 - **为什么改**：用户准备把 GitHub repo 改为 public

@@ -10,6 +10,11 @@ Validates that an **AgentCore Runtime** data agent querying/updating **Amazon Re
 - `webchat/`: browser GUIs (OBO and 2LO/3LO); run locally or deploy behind API Gateway (HTTP API) → Lambda (`infra/14-deploy-webchat.sh`).
 - `tests/`: the access matrix and the negative, network and exchange-boundary tests.
 
+## ⚠️ Cost and disclaimer
+- **This deploys billable AWS resources** in your account: a Redshift cluster, NAT gateways, AgentCore Runtime / Gateway / Identity, Lambda, API Gateway, Cognito and CloudWatch Logs. While it runs it costs about **$0.72/hour (~$17/day)**; see "Cost" in `RUNBOOK-cognito-idc.md`. Your bill may differ by Region, usage and pricing changes.
+- **Tear down when you're done** to stop charges: run `infra/run.sh infra/99-teardown.sh` (steps 01–12), and follow the teardown step of each part in `RUNBOOK-cognito-idc.md` for the web GUIs (14), Gateway tool RBAC (15) and mall gateway (16). Then check the Billing console and Cost Explorer for anything left over. The teardown deletes Redshift **without a final snapshot**.
+- **Disclaimer:** this is sample code for learning and testing, not production-ready. You're responsible for any cost it incurs, and for the security and compliance of anything you deploy with it. Review the scripts before you run them, and use a non-production account.
+
 
 ## 2LO vs 3LO vs OBO
 
