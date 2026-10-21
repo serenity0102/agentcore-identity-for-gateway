@@ -1,3 +1,9 @@
+## [2026-10-21] infra/README: how to install the test environment
+- **改了什么**：infra/README.md 加「Install the test environment」（venv → 01–08 OBO → 09–12 2LO/3LO → 13–14 GUI → 15 RBAC → 16 Quick → 17 Registry → teardown，每段附验证命令），并补充前置条件（IdC 用户/组且 email 对应、工具、macOS sed）；README.md 加 Install 段指向 infra/README.md；修正 runbook 里遗留的 `cd agent`
+- **为什么改**：让别人可以从零安装整个测试环境
+- **涉及文件/资源**：infra/README.md, README.md, RUNBOOK-cognito-idc.md
+- **结果**：命令与 runbook 和脚本参数核对一致；所有 .sh 可执行；已推送 GitHub
+
 ## [2026-10-21] Move lambda/ into infra/lambda/
 - **改了什么**：`git mv lambda infra/lambda`；更新 11/15/16/18 部署脚本和 15-rbac-pretoken.py 的打包路径、tools.json 路径，README / infra/README / lambda READMEs、data/ 下 SVG/flow 和本地 docs 的引用
 - **为什么改**：Lambda 代码只被 infra 脚本使用，放在 infra/ 下边界更清楚

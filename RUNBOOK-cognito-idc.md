@@ -50,7 +50,7 @@ This runbook covers the **Cognito + IAM Identity Center** implementation of the 
 
 - AWS CLI v2, `uv`, Python 3.12 (via uv), `nc`, `zip`; AWS profile `default` with admin rights in 123456789012.
 - Existing IdC instance `ssoins-715869a9a6444dc5` (ap-east-1), with users wei/zhang/chen/ds1 in the groups risk-team, marketing-team, platform-team and data-scientists.
-- Agent venv: `cd agent && uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -r requirements.txt requests`
+- Agent venv: `cd agent_obo && uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -r requirements.txt requests`
 - **Always run steps through `infra/run.sh`.** It loads `infra/00-config.sh` and `infra/state.env`, where resource IDs are saved. Every step is idempotent and safe to re-run.
 
 ---
