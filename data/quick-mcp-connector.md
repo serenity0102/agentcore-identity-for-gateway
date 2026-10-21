@@ -15,8 +15,8 @@ Quick by automation. This guide is for you to run by hand.
 | Authentication | **User authentication**, i.e. *Custom user based OAuth*. **Not** service authentication. Leave *Public OAuth client* unchecked. |
 | Client ID | `2sh6a0uvge5dbcl5m1td1kone4` (Cognito app client `rsidc-quick-mcp`) |
 | Client secret | Run `cat tests/.quick-client.env` locally and copy `QUICK_CLIENT_SECRET`. The file is gitignored; never paste it anywhere else. |
-| Authorization URL | `https://rsidc-383386985941.auth.ap-southeast-1.amazoncognito.com/oauth2/authorize` |
-| Token URL | `https://rsidc-383386985941.auth.ap-southeast-1.amazoncognito.com/oauth2/token` |
+| Authorization URL | `https://rsidc-123456789012.auth.ap-southeast-1.amazoncognito.com/oauth2/authorize` |
+| Token URL | `https://rsidc-123456789012.auth.ap-southeast-1.amazoncognito.com/oauth2/token` |
 | Scopes (if asked) | `openid email profile` |
 | Redirect URL | Auto-filled by Quick as `https://<quick-region>.quicksight.aws.amazon.com/sn/oauthcallback`. It must be in the client's callback list (see below). |
 
@@ -55,7 +55,7 @@ In a Quick chat or agent that has the integration enabled, ask each of the follo
 ## 4. Switch the connection to ds1
 
 1. In Quick's integration or connection page, **sign out** or **disconnect** your OAuth connection.
-2. Clear the Cognito session so you aren't silently signed back in as wei. Either use a private browser window for Quick, or delete cookies for `rsidc-383386985941.auth.ap-southeast-1.amazoncognito.com`.
+2. Clear the Cognito session so you aren't silently signed back in as wei. Either use a private browser window for Quick, or delete cookies for `rsidc-123456789012.auth.ap-southeast-1.amazoncognito.com`.
 3. **Reconnect** and sign in as **ds1**.
 
 ## 5. Test as ds1 (the key observations)

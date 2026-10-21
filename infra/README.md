@@ -1,7 +1,16 @@
 # infra/
 Provisioning for the PoC. Run every script through `./run.sh` (it loads `00-config.sh` and `state.env`).
-- `00-config.sh`: regions, IdC instance, names and operator IPs. `save` persists resource IDs to `state.env` (gitignored).
-- `01`–`08`: numbered, idempotent steps. Re-running one is safe. See `../RUNBOOK-cognito-idc.md` for the order and expected output (Entra ID steps 18–20: `../RUNBOOK-entra-id.md`).
+
+## Prerequisites / assumptions
+- **IAM Identity Center is already enabled** in your AWS account (organization or account instance) in `IDC_REGION`. These scripts don't create or delete the IdC instance.
+- **Set your IdC values in `00-config.sh`** before running anything:
+  - `IDC_INSTANCE_ARN`: your instance ARN, `arn:aws:sso:::instance/ssoins-<id>` (IAM Identity Center console → Settings → Instance ARN, or `aws sso-admin list-instances --region <IDC_REGION>`);
+  - `IDENTITY_STORE_ID`: the matching identity store ID, `d-<id>` (same command / page);
+  - `IDC_REGION` and `RT_REGION` if you use other Regions.
+- `ACCOUNT_ID` is looked up from your credentials (`aws sts get-caller-identity`); the profile is `AWS_PROFILE` in `00-config.sh`.
+
+ regions, IdC instance, names and operator IPs. `save` persists resource IDs to `state.env` (gitignored).
+- `01`–`08`: numbered, idempotent steps. Re-running one is safe. See `../RUNBOOK-cognito-idc.md` for the order and expected output.
 - `99-teardown.sh`: deletes everything the steps created. It never touches the pre-existing IdC instance, users or groups.
 - `policies/`: IAM trust and permission documents. `sql/`: admin seed data, grants to IdC group roles, RLS.
 Conventions: tag everything `Project=rsidc`; no `0.0.0.0/0` ingress; no Redshift permissions on the runtime role.

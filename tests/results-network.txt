@@ -22,6 +22,6 @@
 ### X1 admin IAM user (not in IdC app ActorPolicy) tries to exchange wei's JWT -> expect AccessDenied
   UNEXPECTED: exchange succeeded
 ### X1 (after explicit Deny) admin IAM user exchanges wei's JWT
-  AccessDeniedException An error occurred (AccessDeniedException) when calling the CreateTokenWithIAM operation: User: arn:aws:iam::383386985941:user/jacky is not authorized to perform: sso-oauth:CreateTokenWithIAM on resour
+  AccessDeniedException An error occurred (AccessDeniedException) when calling the CreateTokenWithIAM operation: User: arn:aws:iam::123456789012:user/jacky is not authorized to perform: sso-oauth:CreateTokenWithIAM on resour
 ### X2 runtime role still allowed (fresh session)
   (200, {'mode': 'sql', 'result': {'ok': True, 'columns': ['current_user'], 'rows': [['AWSIDC:wei@techfinance.example.com']]}})

@@ -1,3 +1,9 @@
+## [2026-10-21] Mask AWS account ID before making the repo public; IdC prerequisites
+- **改了什么**：发布文件中的账号 ID 全部替换为 `123456789012`（14 个文本文件：runbook、SVG、flow HTML、registry JSON 等）；`infra/00-config.sh` 的 `ACCOUNT_ID` 改为用 `aws sts get-caller-identity` 查询；20 张 console 截图用 macOS Vision OCR 定位账号 ID、ARN 和 Isengard 角色并涂黑，右上角账号区域统一涂黑；infra/README.md 加 Prerequisites（需已有 IAM Identity Center，并在 00-config.sh 填 IDC_INSTANCE_ARN / IDENTITY_STORE_ID）
+- **为什么改**：用户准备把 GitHub repo 改为 public
+- **涉及文件/资源**：infra/00-config.sh, infra/README.md, data/**, RUNBOOK-cognito-idc.md, infra/registry/*.json, tests/results-network.txt
+- **结果**：发布文件 grep 无真实账号 ID；OCR 复查截图 0 处命中；00-config.sh 仍解析出真实账号（本地脚本不受影响）
+
 ## [2026-10-21] New data/ folder for the assets the repo links to
 - **改了什么**：把 RUNBOOK 和脚本引用的 34 个文件从 docs/ 移到 data/（6 张架构 SVG、flow.html / flow-rbac.html 及其 build 源、data-views.*、quick-mcp-connector.md、19 张 console 截图 + manifest、IdC 截图），新增 data/README.md；所有引用 `docs/<file>` 改为 `data/<file>`（RUNBOOK-cognito-idc.md、tests/render_data_views.py 输出目录、本地 decks / email-draft / entra runbook / docs/build_console_shots.py）
 - **为什么改**：docs/ 不上 GitHub，runbook 里的图片和链接在 GitHub 上是坏的

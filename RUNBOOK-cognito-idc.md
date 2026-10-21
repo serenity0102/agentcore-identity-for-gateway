@@ -48,7 +48,7 @@ This runbook covers the **Cognito + IAM Identity Center** implementation of the 
 <a name="shared-prereq"></a>
 <details id="shared-prereq"><summary><b>Prerequisites</b> · result: ready</summary>
 
-- AWS CLI v2, `uv`, Python 3.12 (via uv), `nc`, `zip`; AWS profile `default` with admin rights in 383386985941.
+- AWS CLI v2, `uv`, Python 3.12 (via uv), `nc`, `zip`; AWS profile `default` with admin rights in 123456789012.
 - Existing IdC instance `ssoins-715869a9a6444dc5` (ap-east-1), with users wei/zhang/chen/ds1 in the groups risk-team, marketing-team, platform-team and data-scientists.
 - Agent venv: `cd agent && uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -r requirements.txt requests`
 - **Always run steps through `infra/run.sh`.** It loads `infra/00-config.sh` and `infra/state.env`, where resource IDs are saved. Every step is idempotent and safe to re-run.
@@ -259,8 +259,8 @@ Copied from the user's Quick connector page (2026-10-20):
 | Authentication type | Custom user based OAuth |
 | Signed in as | wei@techfinance.example.com |
 | Base URL | `https://rsidc-mall-gateway-skatnrktwr.gateway.bedrock-agentcore.ap-southeast-1.amazonaws.com/mcp` |
-| Authorization URL | `https://rsidc-383386985941.auth.ap-southeast-1.amazoncognito.com/oauth2/authorize` |
-| Token URL | `https://rsidc-383386985941.auth.ap-southeast-1.amazoncognito.com/oauth2/token` |
+| Authorization URL | `https://rsidc-123456789012.auth.ap-southeast-1.amazoncognito.com/oauth2/authorize` |
+| Token URL | `https://rsidc-123456789012.auth.ap-southeast-1.amazoncognito.com/oauth2/token` |
 | Client ID | `2sh6a0uvge5dbcl5m1td1kone4` (Cognito app client `rsidc-quick-mcp`) |
 | Client secret | not shown here; it's in the gitignored `tests/.quick-client.env`. **Rotate it after the demo** (it was visible in a screenshot). |
 | Redirect URL | `https://us-east-1.quicksight.aws.amazon.com/sn/oauthcallback` |
@@ -336,7 +336,7 @@ This matches wei's roles: the `mall-analyst` group gives Tools.Mall.List, Footfa
    Expected: all 4 succeed.
 2. **Switch to ds1:**
    - disconnect or sign out of this connector's OAuth connection;
-   - clear the Cognito session (use a private window, or delete the cookies for `rsidc-383386985941.auth.ap-southeast-1.amazoncognito.com`);
+   - clear the Cognito session (use a private window, or delete the cookies for `rsidc-123456789012.auth.ap-southeast-1.amazoncognito.com`);
    - reconnect and sign in as **ds1**.
 
    **Check that the connector page now shows "Signed in as ds1's email" before testing.** If it still shows wei, you're testing wei's token.
@@ -399,13 +399,13 @@ _Click a step to expand its commands, actual results and verification._
 `infra/run.sh ./infra/09-cognito-oauth-clients.sh`
 
 Creates:
-- A hosted login domain, `rsidc-383386985941`, on **managed login v2**. v2 is required for `prompt=login`; the classic v1 hosted UI ignores it.
+- A hosted login domain, `rsidc-123456789012`, on **managed login v2**. v2 is required for `prompt=login`; the classic v1 hosted UI ignores it.
 - `rsidc-3lo-agent`: confidential client, authorization `code` only, scopes `openid email profile`.
 
 **Result:**
 ```
 rsidc-3lo-agent  code                email openid profile
-authorization_endpoint https://rsidc-383386985941.auth.ap-southeast-1.amazoncognito.com/oauth2/authorize
+authorization_endpoint https://rsidc-123456789012.auth.ap-southeast-1.amazoncognito.com/oauth2/authorize
 ManagedLoginVersion 2, ACTIVE
 ```
 
@@ -544,14 +544,14 @@ _Click a step to expand its commands, actual results and verification._
 `infra/run.sh ./infra/09-cognito-oauth-clients.sh`
 
 Creates:
-- A hosted login domain, `rsidc-383386985941`, on **managed login v2**. v2 is required for `prompt=login`; the classic v1 hosted UI ignores it.
+- A hosted login domain, `rsidc-123456789012`, on **managed login v2**. v2 is required for `prompt=login`; the classic v1 hosted UI ignores it.
 - Resource server `rsidc-reports` with scope `read`.
 - `rsidc-2lo-agent`: confidential client, `client_credentials` only.
 
 **Result:**
 ```
 rsidc-2lo-agent  client_credentials  rsidc-reports/read
-authorization_endpoint https://rsidc-383386985941.auth.ap-southeast-1.amazoncognito.com/oauth2/authorize
+authorization_endpoint https://rsidc-123456789012.auth.ap-southeast-1.amazoncognito.com/oauth2/authorize
 ManagedLoginVersion 2, ACTIVE
 ```
 
@@ -563,7 +563,7 @@ URL at capture (2026-10-05 15:54:20 HKT): <https://ap-southeast-1.console.aws.am
 
 ![09-cognito-app-clients](data/img/console/09-cognito-app-clients.png)
 
-*Cognito → rsidc-users → Domain: rsidc-383386985941 with Managed login (v2)*  
+*Cognito → rsidc-users → Domain: rsidc-123456789012 with Managed login (v2)*  
 URL at capture (2026-10-05 15:54:28 HKT): <https://ap-southeast-1.console.aws.amazon.com/cognito/v2/idp/user-pools/ap-southeast-1_kSVpAo5yl/branding/domain?region=ap-southeast-1>
 
 ![09b-cognito-domain](data/img/console/09b-cognito-domain.png)
@@ -804,7 +804,7 @@ The TTI trusts Cognito and maps the `email` claim to IdC `emails.value`. It also
 **Result:**
 ```
 "ns": "AWSIDC", "status": "Completed",
-"sso": "arn:aws:sso::383386985941:application/ssoins-715869a9a6444dc5/apl-7158c218c69d902a",
+"sso": "arn:aws:sso::123456789012:application/ssoins-715869a9a6444dc5/apl-7158c218c69d902a",
 "tti": [{"TrustedTokenIssuerArn": ".../tti-54429cde-c0b0-70e4-eeec-ba89c6508f18", "AuthorizedAudiencesList": ["kff7mg63m7d94n6f2euip41na"]}]
 assignments: 4 groups
 ```
@@ -825,7 +825,7 @@ IAM Identity Center does not sign users in here; Cognito does. The **Trusted Tok
 | JWKS retrieval | `OPEN_ID_DISCOVERY` | IdC fetches Cognito's signing keys from `<issuer>/.well-known/openid-configuration` → `jwks_uri`, and verifies the JWT signature |
 | Claim attribute path | `email` | the claim in the JWT that identifies the user |
 | Identity store attribute path | `emails.value` | the IdC user attribute that the claim must match |
-| ARN | `arn:aws:sso::383386985941:trustedTokenIssuer/ssoins-715869a9a6444dc5/tti-54429cde-c0b0-70e4-eeec-ba89c6508f18` | |
+| ARN | `arn:aws:sso::123456789012:trustedTokenIssuer/ssoins-715869a9a6444dc5/tti-54429cde-c0b0-70e4-eeec-ba89c6508f18` | |
 
 The TTI on its own grants nothing. Each IdC application must list it and say **which audiences** it accepts:
 
@@ -1029,7 +1029,7 @@ The runtime role gets `sso-oauth:CreateTokenWithIAM` on this app only.
 ```
 Scopes: ["redshift:connect"]   Grant: AuthorizedTokenIssuers=[tti-54429cde..., aud kff7mg63m7d94n6f2euip41na]   Assignments: 4
 ActorPolicy: Allow (runtime role) / Deny DenyEveryoneElseIncludingAdmins
-AGENT_IDC_APP_ARN=arn:aws:sso::383386985941:application/ssoins-715869a9a6444dc5/apl-7158676c1128adac
+AGENT_IDC_APP_ARN=arn:aws:sso::123456789012:application/ssoins-715869a9a6444dc5/apl-7158676c1128adac
 ```
 
 <!-- console-shots:start -->
@@ -1056,7 +1056,7 @@ Direct code deploy: a linux/arm64 zip uploaded to S3, PYTHON_3_12, entry point `
 "status": "READY", "net": "VPC",
 "auth": {"customJWTAuthorizer": {"discoveryUrl": "https://cognito-idp.ap-southeast-1.amazonaws.com/ap-southeast-1_kSVpAo5yl/.well-known/openid-configuration", "allowedAudience": ["kff7mg63m7d94n6f2euip41na"]}},
 "headers": {"requestHeaderAllowlist": ["Authorization"]}
-RT_ARN=arn:aws:bedrock-agentcore:ap-southeast-1:383386985941:runtime/rsidc_data_agent-BoemCIApSW
+RT_ARN=arn:aws:bedrock-agentcore:ap-southeast-1:123456789012:runtime/rsidc_data_agent-BoemCIApSW
 ```
 Agent payloads: `{"sql": "..."}` runs exactly that SQL as the caller (deterministic tests). `{"prompt": "..."}` uses the Claude agent (`global.anthropic.claude-sonnet-5-5`) with a `run_sql` tool.
 
@@ -1308,7 +1308,7 @@ infra/run.sh bash infra/15-rbac-logs.sh          # gateway APPLICATION_LOGS → 
 The Cedar policies are created by the script, one per tool, and contain no group names:
 ```cedar
 permit(principal is AgentCore::OAuthUser, action == AgentCore::Action::"sales___get_sales_summary",
-       resource == AgentCore::Gateway::"arn:aws:bedrock-agentcore:ap-southeast-1:383386985941:gateway/rsidc-rbac-gateway-xwjxlwbllu")
+       resource == AgentCore::Gateway::"arn:aws:bedrock-agentcore:ap-southeast-1:123456789012:gateway/rsidc-rbac-gateway-xwjxlwbllu")
 when { principal.hasTag("roles") && principal.getTag("roles") like "*\"Tools.Sales.Read\"*" };
 permit(principal is AgentCore::OAuthUser, action == AgentCore::Action::"crm___get_customer_contacts",
        resource == AgentCore::Gateway::"arn:…:gateway/rsidc-rbac-gateway-xwjxlwbllu")
@@ -1557,7 +1557,7 @@ It creates the registry `rsidc-registry` (IAM auth, **manual approval**, no auto
 
 **Actual result (2026-10-06):**
 ```
-registry arn:aws:agent-registry:ap-northeast-1:383386985941:registry/wCf04AFofS2kuI0i
+registry arn:aws:agent-registry:ap-northeast-1:123456789012:registry/wCf04AFofS2kuI0i
 rsidc-data-agent     CUSTOM GLzbeTVUP2om APPROVED
 rsidc-oauth-agent    CUSTOM bIlCm8wOcltj APPROVED
 rsidc-2lo-gateway    MCP    BxtmQrlS0Y7Z APPROVED
@@ -1596,7 +1596,7 @@ aws agent-registry-control delete-registry --registry-id wCf04AFofS2kuI0i --regi
 <a name="app-registry-us"></a>
 <details id="app-registry-us"><summary><b>Agent Registry · second registry in us-east-1, for Amazon Quick</b> · result: registry OEmHlFAdLFTUVzdK</summary>
 
-Quick only links a registry in the **same AWS account and Region** as the Quick account, it needs `AWS_IAM` auth, and it surfaces only `MCP` records that have `remotes[].url`. The Quick account in 383386985941 (`awsjackywu`) has its home Region in **us-east-1**, so the same records were also created there:
+Quick only links a registry in the **same AWS account and Region** as the Quick account, it needs `AWS_IAM` auth, and it surfaces only `MCP` records that have `remotes[].url`. The Quick account in 123456789012 (`awsjackywu`) has its home Region in **us-east-1**, so the same records were also created there:
 ```bash
 REGISTRY_REGION=us-east-1 infra/run.sh agent_obo/.venv/bin/python infra/17-agent-registry.py
 ```
