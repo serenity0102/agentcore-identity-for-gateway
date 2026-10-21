@@ -6,7 +6,7 @@ Validates that an **AgentCore Runtime** data agent querying/updating **Amazon Re
 - `RUNBOOK-cognito-idc.md`: Cognito + IAM Identity Center, in four parts: Part 1 · Amazon Quick → Gateway (3LO by Quick), Part 2 · 3LO, Part 3 · 2LO, Part 4 · OBO (with per-user Gateway tool RBAC). Each step is collapsible.
 - `infra/`: idempotent provisioning scripts (`01`…`08`, `99-teardown`), IAM policies and SQL.
 - `agent_obo/`: the OBO data agent (Part 1) deployed to AgentCore Runtime.
-- `agent_oauth/` + `lambda/`: the separate 2LO/3LO agent and the Gateway reporting Lambda (Part 2).
+- `agent_oauth/` + `infra/lambda/`: the separate 2LO/3LO agent and the Gateway reporting Lambda (Part 2).
 - `webchat/`: browser GUIs (OBO and 2LO/3LO); run locally or deploy behind API Gateway (HTTP API) → Lambda (`infra/14-deploy-webchat.sh`).
 - `tests/`: the access matrix and the negative, network and exchange-boundary tests.
 

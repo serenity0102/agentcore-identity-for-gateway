@@ -14,6 +14,7 @@ Provisioning for the PoC. Run every script through `./run.sh` (it loads `00-conf
 - `00-config.sh`: regions, IdC instance, names and operator IPs. `save` persists resource IDs to `state.env` (gitignored).
 - `01`–`08`: numbered, idempotent steps. Re-running one is safe. See `../RUNBOOK-cognito-idc.md` for the order and expected output.
 - `99-teardown.sh`: deletes everything the steps created. It never touches the pre-existing IdC instance, users or groups.
+- `lambda/`: code for the Lambdas these scripts deploy: `reporting` (11, 2LO Gateway target), `rbac_tools` (15), `mall_tools` + `tools.json` (16), `pretoken` (15-rbac-pretoken.py, Cognito trigger).
 - `policies/`: IAM trust and permission documents. `sql/`: admin seed data, grants to IdC group roles, RLS.
 Conventions: tag everything `Project=rsidc`; no `0.0.0.0/0` ingress; no Redshift permissions on the runtime role.
 - `15-rbac-*`, Part 3 (Gateway tool RBAC). Run in this order: `15-rbac-idc-groups.sh`, `15-rbac-gateway.sh`, `15-rbac-pretoken.py`, `15-rbac-policy.sh LOG_ONLY|ENFORCE`, `15-rbac-logs.sh`. It only *creates* project-owned IdC groups (`rsidc-gw-*`). Pre-existing IdC groups are read but never modified.

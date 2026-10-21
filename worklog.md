@@ -1,3 +1,9 @@
+## [2026-10-21] Move lambda/ into infra/lambda/
+- **改了什么**：`git mv lambda infra/lambda`；更新 11/15/16/18 部署脚本和 15-rbac-pretoken.py 的打包路径、tools.json 路径，README / infra/README / lambda READMEs、data/ 下 SVG/flow 和本地 docs 的引用
+- **为什么改**：Lambda 代码只被 infra 脚本使用，放在 infra/ 下边界更清楚
+- **涉及文件/资源**：infra/lambda/**, infra/11-2lo-gateway.sh, 15-rbac-gateway.sh, 15-rbac-pretoken.py, 16-mall-gateway.sh, 18-entra-gateway.sh, README.md, infra/README.md
+- **结果**：bash -n / py_compile 通过；所有打包路径存在；没有残留的旧路径；已部署的 Lambda 不受影响
+
 ## [2026-10-21] README: cost, teardown reminder and disclaimer
 - **改了什么**：README.md 新增「Cost and disclaimer」：会产生费用（约 $0.72/小时）、用完要 teardown（99-teardown.sh + 各 part 的 teardown）、费用和安全由使用者自行负责
 - **为什么改**：repo 准备公开，提醒使用者成本和责任

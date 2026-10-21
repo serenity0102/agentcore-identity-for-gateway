@@ -1,4 +1,4 @@
-# lambda/mall_tools/
+# infra/lambda/mall_tools/
 Part 4 (customer version). The customer's 4 mall-footfall tools, implemented as **one** AgentCore Gateway Lambda target named `mall`.
 - **Tools:** `get_mall_list`, `get_footfall_summary`, `get_hourly_traffic`, `get_zone_comparison`. Through the Gateway they appear as `mall___<tool>`.
 - **Schemas:** `tools.json` holds the inline tool schema registered on the target.

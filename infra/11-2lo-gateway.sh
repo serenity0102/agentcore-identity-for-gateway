@@ -12,7 +12,7 @@ aws iam put-role-policy --role-name $LR --policy-name reporting --policy-documen
  {\"Effect\":\"Allow\",\"Action\":\"redshift-data:ExecuteStatement\",\"Resource\":\"arn:aws:redshift:${IDC_REGION}:${ACCOUNT_ID}:cluster:${REDSHIFT_CLUSTER_ID}\"},
  {\"Effect\":\"Allow\",\"Action\":[\"redshift-data:DescribeStatement\",\"redshift-data:GetStatementResult\"],\"Resource\":\"*\"},
  {\"Effect\":\"Allow\",\"Action\":[\"logs:CreateLogGroup\",\"logs:CreateLogStream\",\"logs:PutLogEvents\"],\"Resource\":\"arn:aws:logs:${R}:${ACCOUNT_ID}:*\"}]}"
-(cd "$ROOT/lambda/reporting" && rm -f /tmp/reporting.zip && zip -q /tmp/reporting.zip handler.py)
+(cd "$ROOT/infra/lambda/reporting" && rm -f /tmp/reporting.zip && zip -q /tmp/reporting.zip handler.py)
 FN=${PROJECT}-reporting
 if aws lambda get-function --region $R --function-name $FN >/dev/null 2>&1; then
   aws lambda update-function-code --region $R --function-name $FN --zip-file fileb:///tmp/reporting.zip >/dev/null

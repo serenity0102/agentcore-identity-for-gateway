@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Part 4 (customer version): AgentCore Gateway IS the MCP server that Amazon Quick connects to.
 #   inbound : Cognito JWT, allowedClients = Quick app client (rsidc-quick-mcp) + OBO client (scripted tests)
-#   target  : ONE Lambda target "mall" with the customer's 4 tools (lambda/mall_tools) -> tool names mall___<tool>
+#   target  : ONE Lambda target "mall" with the customer's 4 tools (infra/lambda/mall_tools) -> tool names mall___<tool>
 #   outbound: Gateway IAM role -> lambda:InvokeFunction. The Lambda has no URL and no resource policy, so it cannot be
 #             reached around the Gateway (anti-bypass). Policy (Cedar) is attached by 16-mall-policy.sh.
 set -euo pipefail; source "$(dirname "$0")/00-config.sh"; R=$RT_REGION; ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -10,7 +10,7 @@ LTRUST='{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Ser
 aws iam get-role --role-name $LR >/dev/null 2>&1 || { aws iam create-role --role-name $LR --tags Key=Project,Value=$PROJECT --assume-role-policy-document "$LTRUST" >/dev/null; sleep 10; }
 sed -e "s/__REGION__/$R/g" -e "s/__ACCOUNT__/$ACCOUNT_ID/g" "$ROOT/infra/policies/mall-tools-permissions.json" > /tmp/$LR.json
 aws iam put-role-policy --role-name $LR --policy-name mall-tools --policy-document file:///tmp/$LR.json
-(cd "$ROOT/lambda/mall_tools" && rm -f /tmp/mall_tools.zip && zip -q /tmp/mall_tools.zip handler.py)
+(cd "$ROOT/infra/lambda/mall_tools" && rm -f /tmp/mall_tools.zip && zip -q /tmp/mall_tools.zip handler.py)
 if aws lambda get-function --region $R --function-name $FN >/dev/null 2>&1; then
   aws lambda update-function-code --region $R --function-name $FN --zip-file fileb:///tmp/mall_tools.zip >/dev/null
 else
@@ -37,7 +37,7 @@ for i in $(seq 30); do s=$(aws bedrock-agentcore-control get-gateway --region $R
 save MALL_GW_URL $(aws bedrock-agentcore-control get-gateway --region $R --gateway-identifier $MALL_GW_ID --query gatewayUrl --output text)
 save MALL_GW_ARN $(aws bedrock-agentcore-control get-gateway --region $R --gateway-identifier $MALL_GW_ID --query gatewayArn --output text)
 if ! aws bedrock-agentcore-control list-gateway-targets --region $R --gateway-identifier $MALL_GW_ID --query "items[?name=='mall'].targetId" --output text | grep -q .; then
-  CFG=$(python3 -c "import json,sys;print(json.dumps({'mcp':{'lambda':{'lambdaArn':sys.argv[1],'toolSchema':{'inlinePayload':json.load(open(sys.argv[2]))}}}}))" $MALL_FN "$ROOT/lambda/mall_tools/tools.json")
+  CFG=$(python3 -c "import json,sys;print(json.dumps({'mcp':{'lambda':{'lambdaArn':sys.argv[1],'toolSchema':{'inlinePayload':json.load(open(sys.argv[2]))}}}}))" $MALL_FN "$ROOT/infra/lambda/mall_tools/tools.json")
   for try in 1 2 3 4 5 6; do  # retries cover IAM propagation of the gateway role policy
     aws bedrock-agentcore-control create-gateway-target --region $R --gateway-identifier $MALL_GW_ID --name mall \
       --description "Customer mall-footfall tools (4)" --target-configuration "$CFG" \

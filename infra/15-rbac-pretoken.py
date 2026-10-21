@@ -1,4 +1,4 @@
-"""Part 3 (Gateway tool RBAC): deploy the Cognito Pre Token Generation V2 trigger (lambda/pretoken) and attach it to
+"""Part 3 (Gateway tool RBAC): deploy the Cognito Pre Token Generation V2 trigger (infra/lambda/pretoken) and attach it to
 the user pool. Cognito calls the alias `live`, never $LATEST: new code goes to $LATEST, is pre-flighted for every pool
 user, and only then published and the alias moved. The trigger fails closed, so a broken version on the live path
 would block every sign-in (OBO, 3LO, webchat). See history/005.
@@ -32,7 +32,7 @@ def deploy_lambda():
     iam.put_role_policy(RoleName=ROLE, PolicyName="read-idc-groups", PolicyDocument=doc)
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as z:
-        z.write(os.path.join(ROOT, "lambda/pretoken/handler.py"), "handler.py")
+        z.write(os.path.join(ROOT, "infra/lambda/pretoken/handler.py"), "handler.py")
     env = {"Variables": {"IDC_REGION": os.environ["IDC_REGION"], "IDENTITY_STORE_ID": os.environ["IDENTITY_STORE_ID"],
                          "ROLE_SOURCES": "cognito,idc"}}  # Part 4 adds Cognito groups; Part 3 (IdC) keeps working
     try:

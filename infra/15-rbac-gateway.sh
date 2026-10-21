@@ -3,7 +3,7 @@
 # (allowedClients = OBO client). The 2LO gateway from step 11 is untouched. Policy is attached by 15-rbac-policy.sh.
 set -euo pipefail; source "$(dirname "$0")/00-config.sh"; R=$RT_REGION; ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 LR=${PROJECT}-reporting-lambda-role   # reuse step 11's role: Data API as svc_reporting only
-(cd "$ROOT/lambda/rbac_tools" && rm -f /tmp/rbac_tools.zip && zip -q /tmp/rbac_tools.zip handler.py)
+(cd "$ROOT/infra/lambda/rbac_tools" && rm -f /tmp/rbac_tools.zip && zip -q /tmp/rbac_tools.zip handler.py)
 for t in sales crm; do
   FN=${PROJECT}-tool-$t
   if aws lambda get-function --region $R --function-name $FN >/dev/null 2>&1; then
