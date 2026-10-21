@@ -7,7 +7,8 @@ Provisioning for the PoC. Run every script through `./run.sh` (it loads `00-conf
   - `IDC_INSTANCE_ARN`: your instance ARN, `arn:aws:sso:::instance/ssoins-<id>` (IAM Identity Center console → Settings → Instance ARN, or `aws sso-admin list-instances --region <IDC_REGION>`);
   - `IDENTITY_STORE_ID`: the matching identity store ID, `d-<id>` (same command / page);
   - `IDC_REGION` and `RT_REGION` if you use other Regions.
-- `ACCOUNT_ID` is looked up from your credentials (`aws sts get-caller-identity`); the profile is `AWS_PROFILE` in `00-config.sh`.
+- **Deployment uses a named AWS CLI profile.** Set `AWS_PROFILE` in `00-config.sh` (default: `default`) to a profile in `~/.aws/config` with permissions to create the resources (IAM, VPC, Cognito, Redshift, AgentCore, Lambda, API Gateway). Check it with `aws sts get-caller-identity --profile <name>`.
+- `ACCOUNT_ID` is looked up from that profile (`aws sts get-caller-identity`), so you don't set it.
 
  regions, IdC instance, names and operator IPs. `save` persists resource IDs to `state.env` (gitignored).
 - `01`–`08`: numbered, idempotent steps. Re-running one is safe. See `../RUNBOOK-cognito-idc.md` for the order and expected output.
