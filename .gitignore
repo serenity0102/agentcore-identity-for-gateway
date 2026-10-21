@@ -32,3 +32,4 @@ webchat/entra_*
 
 # test results: kept local only (not published)
 tests/results/
+webchat/README-entra-id.md

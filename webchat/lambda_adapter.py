@@ -1,4 +1,4 @@
-"""Run the existing webchat handlers (app.py / oauth_app.py) behind API Gateway (HTTP API), unchanged.
+"""Run the existing webchat handlers (obo_app.py / oauth_app.py) behind API Gateway (HTTP API), unchanged.
 The HTTP API event (payload format 2.0) is replayed as a raw HTTP request into the module's BaseHTTPRequestHandler `H`, and the
 written HTTP response is parsed back into the payload 2.0 response format.
 Env: WEBCHAT_APP=app|oauth_app. No IP filtering here: restrict access in front of the API (e.g. resource policy / WAF).

@@ -773,7 +773,7 @@ _Click a step to expand its commands, actual results and verification._
 _Diagram: see the top of Part 4. The text view and design notes follow._
 
 ```
- User's browser ──▶ Web chat GUI  http://localhost:8080  (webchat/app.py on the operator workstation, 127.0.0.1 only)
+ User's browser ──▶ Web chat GUI  http://localhost:8080  (webchat/obo_app.py on the operator workstation, 127.0.0.1 only)
    │  Sign in → Cognito managed login (auth code + PKCE); ID token (JWT) kept server-side by the GUI
    ▼  Authorization: Bearer <JWT>
  AgentCore Runtime  [ap-southeast-1, VPC mode]
@@ -1139,7 +1139,7 @@ PASS | ds1   | read sales (no grants)        | DENY  | 42501 permission denied f
 <details id="obo-gui"><summary><b>Web GUI · OBO chat</b> · result: wei 5 rows · zhang 2 APAC rows, no email</summary>
 
 1. One-time: `infra/run.sh agent_obo/.venv/bin/python infra/13-web-login-client.py`. This adds Cognito managed login (code + PKCE, callback `http://localhost:8080/callback`) to the **existing** OBO client. Only the OAuth fields change; `USER_PASSWORD_AUTH`, the audience and the token lifetimes are untouched.
-2. Start the GUI with `infra/run.sh agent_obo/.venv/bin/python webchat/app.py`, then open http://localhost:8080.
+2. Start the GUI with `infra/run.sh agent_obo/.venv/bin/python webchat/obo_app.py`, then open http://localhost:8080.
 3. Choose **Sign in** and use wei / zhang / chen / ds1 with the password from `tests/.users.env`. Then chat in natural language, or type `SQL: …` to run an exact statement as that user. **Sign out** switches users.
 
 **Result (2026-10-05, headless Chrome):**

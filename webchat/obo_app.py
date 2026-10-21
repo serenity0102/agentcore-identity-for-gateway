@@ -1,7 +1,7 @@
 """Local web chat for the OBO data agent: sign in on Cognito managed login (auth code + PKCE), then chat.
 The ID token stays server-side (in memory, keyed by an HttpOnly session cookie) and is sent to AgentCore Runtime
 as the bearer token. One runtime session per sign-in, so the IdC token exchange happens once (single-use JWT).
-Run:  infra/run.sh agent_obo/.venv/bin/python webchat/app.py   then open http://localhost:8080"""
+Run:  infra/run.sh agent_obo/.venv/bin/python webchat/obo_app.py   then open http://localhost:8080"""
 import base64, hashlib, html, json, os, secrets, sys, urllib.parse, urllib.request, uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 

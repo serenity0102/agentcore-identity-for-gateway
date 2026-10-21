@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploy the four web GUIs (webchat/app.py = OBO, oauth_app.py = 2LO/3LO, rbac_app.py = Gateway tool RBAC, entra_app.py = Entra 2LO/3LO/OBO) as Lambdas behind API Gateway HTTP APIs
+# Deploy the four web GUIs (webchat/obo_app.py = OBO, oauth_app.py = 2LO/3LO, rbac_app.py = Gateway tool RBAC, entra_app.py = Entra 2LO/3LO/OBO) as Lambdas behind API Gateway HTTP APIs
 # (HTTPS; no Function URL; the Lambda resource policy only allows this API, never a public principal).
 # Access control: Cognito sign-in only (admin-created users). No IP allowlist yet; add one in front of the API.
 # Also registers the new URLs as Cognito callbacks (step 13) and as a 3LO return URL on the OAuth workload identity.
@@ -14,7 +14,7 @@ aws iam put-role-policy --role-name $ROLE --policy-name webchat-entra --policy-d
 
 B="$ROOT/build-webchat"; rm -rf "$B"; mkdir -p "$B/pkg/webchat" "$B/pkg/tests"
 uv pip install -q --python-platform aarch64-manylinux2014 --python-version 3.12 --only-binary=:all: --target "$B/pkg" requests boto3
-cp "$ROOT"/webchat/{app.py,oauth_app.py,rbac_app.py,entra_app.py,lambda_adapter.py,index.html,oauth_index.html,rbac_index.html,entra_index.html} "$B/pkg/webchat/"; cp "$ROOT/tests/invoke.py" "$B/pkg/tests/"
+cp "$ROOT"/webchat/{obo_app.py,oauth_app.py,rbac_app.py,entra_app.py,lambda_adapter.py,index.html,oauth_index.html,rbac_index.html,entra_index.html} "$B/pkg/webchat/"; cp "$ROOT/tests/invoke.py" "$B/pkg/tests/"
 (cd "$B/pkg" && zip -qr "$B/webchat.zip" .)
 
 deploy() {  # $1 = function suffix; prints the HTTP API endpoint
@@ -39,11 +39,11 @@ deploy() {  # $1 = function suffix; prints the HTTP API endpoint
   fi
   aws apigatewayv2 get-api --region $R --api-id $API_ID --query ApiEndpoint --output text
 }
-OBO_URL=$(deploy obo app); OAUTH_URL=$(deploy oauth oauth_app); RBAC_URL=$(deploy rbac rbac_app); ENTRA_URL=$(deploy entra entra_app)
+OBO_URL=$(deploy obo obo_app); OAUTH_URL=$(deploy oauth oauth_app); RBAC_URL=$(deploy rbac rbac_app); ENTRA_URL=$(deploy entra entra_app)
 save WEB_OBO_URL $OBO_URL; save WEB_OAUTH_URL $OAUTH_URL; save WEB_RBAC_URL $RBAC_URL; save WEB_ENTRA_URL $ENTRA_URL
 COMMON="COGNITO_DOMAIN=$COGNITO_DOMAIN,COGNITO_CLIENT_ID=$COGNITO_CLIENT_ID,RT_REGION=$R"
 aws lambda update-function-configuration --region $R --function-name ${PROJECT}-webchat-obo \
-  --environment "Variables={$COMMON,WEBCHAT_APP=app,RT_ARN=$RT_ARN,WEB_BASE_URL=$OBO_URL}" >/dev/null
+  --environment "Variables={$COMMON,WEBCHAT_APP=obo_app,RT_ARN=$RT_ARN,WEB_BASE_URL=$OBO_URL}" >/dev/null
 aws lambda update-function-configuration --region $R --function-name ${PROJECT}-webchat-oauth \
   --environment "Variables={$COMMON,WEBCHAT_APP=oauth_app,OAUTH_RT_ARN=$OAUTH_RT_ARN,WEB_BASE_URL=$OAUTH_URL,OBO_WEB_URL=$OBO_URL}" >/dev/null
 aws lambda update-function-configuration --region $R --function-name ${PROJECT}-webchat-rbac \
