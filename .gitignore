@@ -1,8 +1,20 @@
 tests/.users.env
 infra/state.env
 *.log
+tasks.txt
 .venv/
 __pycache__/
 .DS_Store
 build/
 build-oauth/
+tests/.quick-client.env
+tests/.entra-users.env
+tests/.entra-agent.env
+tests/.entra-totp.env
+# demo decks contain test-user passwords (internal only)
+docs/AgentCore-Identity-*.pptx
+# contains Entra test-user passwords (internal only)
+RUNBOOK-entra-id.md
+# kept local only (not published)
+docs/
+history/

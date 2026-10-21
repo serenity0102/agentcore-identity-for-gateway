@@ -1,13 +1,12 @@
-"""Run the existing webchat handlers (app.py / oauth_app.py) behind a Lambda Function URL, unchanged.
-The Function URL event is replayed as a raw HTTP request into the module's BaseHTTPRequestHandler `H`, and the
-written HTTP response is parsed back into the Function URL response format.
-Env: WEBCHAT_APP=app|oauth_app, ALLOWED_IPS="1.2.3.4/32 2400:db8:1:2::/64" (CIDRs; requestContext.http.sourceIp is set by AWS, not the client).
+"""Run the existing webchat handlers (app.py / oauth_app.py) behind API Gateway (HTTP API), unchanged.
+The HTTP API event (payload format 2.0) is replayed as a raw HTTP request into the module's BaseHTTPRequestHandler `H`, and the
+written HTTP response is parsed back into the payload 2.0 response format.
+Env: WEBCHAT_APP=app|oauth_app. No IP filtering here: restrict access in front of the API (e.g. resource policy / WAF).
 Sessions live in module memory, so the function runs with reserved concurrency 1 (one warm environment)."""
-import base64, importlib, io, ipaddress, os, sys
+import base64, importlib, io, os, sys
 
 sys.path.insert(0, os.path.dirname(__file__))
 APP = importlib.import_module(os.environ["WEBCHAT_APP"])
-ALLOWED = [ipaddress.ip_network(c, strict=False) for c in os.environ["ALLOWED_IPS"].split()]  # URL is dual-stack: include IPv6
 
 
 class _Handler(APP.H):
@@ -51,7 +50,4 @@ def _to_response(raw):
 
 def handler(event, _context):
     ip = event["requestContext"]["http"]["sourceIp"]
-    if not any(ipaddress.ip_address(ip) in net for net in ALLOWED):
-        print(f"denied source IP {ip}")
-        return {"statusCode": 403, "headers": {"Content-Type": "text/plain"}, "body": f"forbidden: {ip} is not allowlisted"}
     return _to_response(_Handler(_to_raw_request(event), ip).wfile.getvalue())

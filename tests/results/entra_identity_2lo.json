@@ -1,0 +1,98 @@
+{
+ "phase": "2lo",
+ "time": "2026-10-20T11:07:02+0800",
+ "runtime": "arn:aws:bedrock-agentcore:ap-southeast-1:383386985941:runtime/rsidc_entra_agent-TbPbf79MRf",
+ "cases": [
+  {
+   "case": "wei: 2LO token is app-only (no user, no scp)",
+   "expect": [
+    null,
+    null,
+    "fffe808b-63a9-4de8-91ef-1a44ef9a1276"
+   ],
+   "actual": [
+    null,
+    null,
+    "fffe808b-63a9-4de8-91ef-1a44ef9a1276"
+   ],
+   "pass": true,
+   "evidence": "http=200 roles=['Tools.Mall.List', 'Tools.Mall.Footfall'] err=None"
+  },
+  {
+   "case": "wei: 2LO tools/list = the app's roles",
+   "expect": [
+    "mall___get_footfall_summary",
+    "mall___get_mall_list"
+   ],
+   "actual": [
+    "mall___get_footfall_summary",
+    "mall___get_mall_list"
+   ],
+   "pass": true,
+   "evidence": "allowed={'mall___get_mall_list': True, 'mall___get_footfall_summary': True, 'mall___get_hourly_traffic': False, 'mall___get_zone_comparison': False}"
+  },
+  {
+   "case": "ds1: 2LO token is app-only (no user, no scp)",
+   "expect": [
+    null,
+    null,
+    "fffe808b-63a9-4de8-91ef-1a44ef9a1276"
+   ],
+   "actual": [
+    null,
+    null,
+    "fffe808b-63a9-4de8-91ef-1a44ef9a1276"
+   ],
+   "pass": true,
+   "evidence": "http=200 roles=['Tools.Mall.List', 'Tools.Mall.Footfall'] err=None"
+  },
+  {
+   "case": "ds1: 2LO tools/list = the app's roles",
+   "expect": [
+    "mall___get_footfall_summary",
+    "mall___get_mall_list"
+   ],
+   "actual": [
+    "mall___get_footfall_summary",
+    "mall___get_mall_list"
+   ],
+   "pass": true,
+   "evidence": "allowed={'mall___get_mall_list': True, 'mall___get_footfall_summary': True, 'mall___get_hourly_traffic': False, 'mall___get_zone_comparison': False}"
+  },
+  {
+   "case": "chen: 2LO token is app-only (no user, no scp)",
+   "expect": [
+    null,
+    null,
+    "fffe808b-63a9-4de8-91ef-1a44ef9a1276"
+   ],
+   "actual": [
+    null,
+    null,
+    "fffe808b-63a9-4de8-91ef-1a44ef9a1276"
+   ],
+   "pass": true,
+   "evidence": "http=200 roles=['Tools.Mall.List', 'Tools.Mall.Footfall'] err=None"
+  },
+  {
+   "case": "chen: 2LO tools/list = the app's roles",
+   "expect": [
+    "mall___get_footfall_summary",
+    "mall___get_mall_list"
+   ],
+   "actual": [
+    "mall___get_footfall_summary",
+    "mall___get_mall_list"
+   ],
+   "pass": true,
+   "evidence": "allowed={'mall___get_mall_list': True, 'mall___get_footfall_summary': True, 'mall___get_hourly_traffic': False, 'mall___get_zone_comparison': False}"
+  },
+  {
+   "case": "no bearer -> runtime rejects",
+   "expect": true,
+   "actual": true,
+   "pass": true,
+   "evidence": "http=401"
+  }
+ ]
+}

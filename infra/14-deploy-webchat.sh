@@ -1,22 +1,24 @@
 #!/usr/bin/env bash
-# Deploy the two web GUIs (webchat/app.py = OBO, webchat/oauth_app.py = 2LO/3LO) as Lambda Function URLs (HTTPS, no ALB/EC2).
-# Access control: the adapter only serves requests whose AWS-observed source IP is in WEB_ALLOWED_IPS (default: MY_IPS).
+# Deploy the four web GUIs (webchat/app.py = OBO, oauth_app.py = 2LO/3LO, rbac_app.py = Gateway tool RBAC, entra_app.py = Entra 2LO/3LO/OBO) as Lambdas behind API Gateway HTTP APIs
+# (HTTPS; no Function URL; the Lambda resource policy only allows this API, never a public principal).
+# Access control: Cognito sign-in only (admin-created users). No IP allowlist yet; add one in front of the API.
 # Also registers the new URLs as Cognito callbacks (step 13) and as a 3LO return URL on the OAuth workload identity.
 set -euo pipefail; source "$(dirname "$0")/00-config.sh"; R=$RT_REGION; ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-ROLE=${PROJECT}-webchat-role; # Function URLs are dual-stack, so browsers often arrive over IPv6: allow the IPv4s (/32) plus the current IPv6 /64.
-V6=$(curl -s -6 --max-time 5 https://api64.ipify.org || true); V6=${V6:+$(python3 -c "import ipaddress,sys;print(ipaddress.ip_network(sys.argv[1]+'/64',strict=False))" $V6)}
-IPS=${WEB_ALLOWED_IPS:-"$(for i in $MY_IPS; do echo -n "$i/32 "; done)$V6"}; echo "allowlisted IPs: $IPS"
+ROLE=${PROJECT}-webchat-role
 aws iam get-role --role-name $ROLE >/dev/null 2>&1 || { aws iam create-role --role-name $ROLE --tags Key=Project,Value=$PROJECT --assume-role-policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"lambda.amazonaws.com"},"Action":"sts:AssumeRole"}]}' >/dev/null; sleep 10; }
-sed -e "s/__REGION__/$R/g" -e "s/__ACCOUNT__/$ACCOUNT_ID/g" -e "s/__WI__/$OAUTH_WI_NAME/g" "$ROOT/infra/policies/webchat-permissions.json" > /tmp/$ROLE.json
+sed -e "s/__REGION__/$R/g" -e "s/__ACCOUNT__/$ACCOUNT_ID/g" -e "s/__WI__/$OAUTH_WI_NAME/g" -e "s|__CP3LO_SECRET__|$CP3LO_SECRET_ARN|" "$ROOT/infra/policies/webchat-permissions.json" > /tmp/$ROLE.json
 aws iam put-role-policy --role-name $ROLE --policy-name webchat --policy-document file:///tmp/$ROLE.json
+# Part 7 Entra GUI: separate, additive inline policy (3LO session binding reads the provider secret as the caller, history/004)
+sed -e "s/__REGION__/$R/g" -e "s/__ACCOUNT__/$ACCOUNT_ID/g" -e "s/__ENTRA_WI__/$ENTRA_WI_NAME/g" -e "s|__CP_ENTRA_SECRET__|$CP_ENTRA_SECRET_ARN|" "$ROOT/infra/policies/webchat-entra-permissions.json" > /tmp/$ROLE-entra.json
+aws iam put-role-policy --role-name $ROLE --policy-name webchat-entra --policy-document file:///tmp/$ROLE-entra.json
 
 B="$ROOT/build-webchat"; rm -rf "$B"; mkdir -p "$B/pkg/webchat" "$B/pkg/tests"
 uv pip install -q --python-platform aarch64-manylinux2014 --python-version 3.12 --only-binary=:all: --target "$B/pkg" requests boto3
-cp "$ROOT"/webchat/{app.py,oauth_app.py,lambda_adapter.py,index.html,oauth_index.html} "$B/pkg/webchat/"; cp "$ROOT/tests/invoke.py" "$B/pkg/tests/"
+cp "$ROOT"/webchat/{app.py,oauth_app.py,rbac_app.py,entra_app.py,lambda_adapter.py,index.html,oauth_index.html,rbac_index.html,entra_index.html} "$B/pkg/webchat/"; cp "$ROOT/tests/invoke.py" "$B/pkg/tests/"
 (cd "$B/pkg" && zip -qr "$B/webchat.zip" .)
 
-deploy() {  # $1 = function suffix, $2 = WEBCHAT_APP module; prints the Function URL
-  local FN=${PROJECT}-webchat-$1
+deploy() {  # $1 = function suffix; prints the HTTP API endpoint
+  local FN=${PROJECT}-webchat-$1 API_ID
   if aws lambda get-function --region $R --function-name $FN >/dev/null 2>&1; then
     aws lambda update-function-code --region $R --function-name $FN --zip-file fileb://$B/webchat.zip >/dev/null
   else
@@ -25,24 +27,39 @@ deploy() {  # $1 = function suffix, $2 = WEBCHAT_APP module; prints the Function
       --tags Project=$PROJECT >/dev/null
     aws lambda wait function-active-v2 --region $R --function-name $FN
     aws lambda put-function-concurrency --region $R --function-name $FN --reserved-concurrent-executions 1 >/dev/null  # in-memory sessions
-    aws lambda create-function-url-config --region $R --function-name $FN --auth-type NONE >/dev/null
-    aws lambda add-permission --region $R --function-name $FN --statement-id url --action lambda:InvokeFunctionUrl --principal '*' --function-url-auth-type NONE >/dev/null
-    aws lambda add-permission --region $R --function-name $FN --statement-id url-invoke --action lambda:InvokeFunction --principal '*' --invoked-via-function-url >/dev/null
   fi
+  aws lambda delete-function-url-config --region $R --function-name $FN 2>/dev/null || true  # earlier revision used Function URLs
   aws lambda wait function-updated-v2 --region $R --function-name $FN
-  aws lambda get-function-url-config --region $R --function-name $FN --query FunctionUrl --output text | sed 's:/$::'
+  API_ID=$(aws apigatewayv2 get-apis --region $R --query "Items[?Name=='$FN'].ApiId | [0]" --output text)
+  if [ "$API_ID" = "None" ]; then  # quick create: $default route + Lambda proxy (payload 2.0) + auto-deployed $default stage
+    API_ID=$(aws apigatewayv2 create-api --region $R --name $FN --protocol-type HTTP --tags Project=$PROJECT \
+      --target arn:aws:lambda:$R:${ACCOUNT_ID}:function:$FN --query ApiId --output text)
+    aws lambda add-permission --region $R --function-name $FN --statement-id apigw --action lambda:InvokeFunction \
+      --principal apigateway.amazonaws.com --source-arn "arn:aws:execute-api:$R:${ACCOUNT_ID}:$API_ID/*" >/dev/null
+  fi
+  aws apigatewayv2 get-api --region $R --api-id $API_ID --query ApiEndpoint --output text
 }
-OBO_URL=$(deploy obo app); OAUTH_URL=$(deploy oauth oauth_app); save WEB_OBO_URL $OBO_URL; save WEB_OAUTH_URL $OAUTH_URL
-COMMON="COGNITO_DOMAIN=$COGNITO_DOMAIN,COGNITO_CLIENT_ID=$COGNITO_CLIENT_ID,RT_REGION=$R,ALLOWED_IPS=${IPS}"
+OBO_URL=$(deploy obo app); OAUTH_URL=$(deploy oauth oauth_app); RBAC_URL=$(deploy rbac rbac_app); ENTRA_URL=$(deploy entra entra_app)
+save WEB_OBO_URL $OBO_URL; save WEB_OAUTH_URL $OAUTH_URL; save WEB_RBAC_URL $RBAC_URL; save WEB_ENTRA_URL $ENTRA_URL
+COMMON="COGNITO_DOMAIN=$COGNITO_DOMAIN,COGNITO_CLIENT_ID=$COGNITO_CLIENT_ID,RT_REGION=$R"
 aws lambda update-function-configuration --region $R --function-name ${PROJECT}-webchat-obo \
   --environment "Variables={$COMMON,WEBCHAT_APP=app,RT_ARN=$RT_ARN,WEB_BASE_URL=$OBO_URL}" >/dev/null
 aws lambda update-function-configuration --region $R --function-name ${PROJECT}-webchat-oauth \
   --environment "Variables={$COMMON,WEBCHAT_APP=oauth_app,OAUTH_RT_ARN=$OAUTH_RT_ARN,WEB_BASE_URL=$OAUTH_URL,OBO_WEB_URL=$OBO_URL}" >/dev/null
+aws lambda update-function-configuration --region $R --function-name ${PROJECT}-webchat-rbac \
+  --environment "Variables={$COMMON,WEBCHAT_APP=rbac_app,RBAC_GW_URL=$RBAC_GW_URL,MALL_GW_URL=$MALL_GW_URL,WEB_BASE_URL=$RBAC_URL,ENTRA_TENANT_ID=${ENTRA_TENANT_ID:-},ENTRA_CLIENT_ID=${ENTRA_TEST_CLIENT_ID:-},ENTRA_API_APP_ID=${ENTRA_API_APP_ID:-},ENTRA_GW_URL=${ENTRA_GW_URL:-}}" >/dev/null
 rm -rf "$B"
 
-WEBCHAT_URLS="$OBO_URL $OAUTH_URL" "$ROOT/agent/.venv/bin/python" "$ROOT/infra/13-web-login-client.py"   # Cognito callback + logout URLs
+aws lambda update-function-configuration --region $R --function-name ${PROJECT}-webchat-entra \
+  --environment "Variables={WEBCHAT_APP=entra_app,RT_REGION=$R,ENTRA_TENANT_ID=$ENTRA_TENANT_ID,ENTRA_CLIENT_ID=$ENTRA_TEST_CLIENT_ID,ENTRA_AGENT_APP_ID=$ENTRA_AGENT_APP_ID,ENTRA_RT_ARN=$ENTRA_RT_ARN,WEB_BASE_URL=$ENTRA_URL}" >/dev/null
+# Entra GUI: sign-in redirects on the Entra test client, 3LO return URL on the Entra agent's workload identity (merged, never replaced)
+WEB_RBAC_URL=$RBAC_URL WEB_ENTRA_URL=$ENTRA_URL "$ROOT/agent/.venv/bin/python" "$ROOT/infra/18-entra-setup.py" >/dev/null
+ECUR=$(aws bedrock-agentcore-control get-workload-identity --region $R --name $ENTRA_WI_NAME --query 'allowedResourceOauth2ReturnUrls' --output text)
+aws bedrock-agentcore-control update-workload-identity --region $R --name $ENTRA_WI_NAME \
+  --allowed-resource-oauth2-return-urls $(echo $ECUR http://localhost:8765/callback $ENTRA_URL/3lo/callback | tr ' \t' '\n\n' | grep . | sort -u) >/dev/null
+WEBCHAT_URLS="$OBO_URL $OAUTH_URL $RBAC_URL" "$ROOT/agent/.venv/bin/python" "$ROOT/infra/13-web-login-client.py"   # Cognito callback + logout URLs
 CUR=$(aws bedrock-agentcore-control get-workload-identity --region $R --name $OAUTH_WI_NAME --query 'allowedResourceOauth2ReturnUrls' --output text)
 aws bedrock-agentcore-control update-workload-identity --region $R --name $OAUTH_WI_NAME \
   --allowed-resource-oauth2-return-urls $(echo $CUR $OAUTH_URL/3lo/callback | tr ' ' '\n' | sort -u) >/dev/null
 aws bedrock-agentcore-control get-workload-identity --region $R --name $OAUTH_WI_NAME --query allowedResourceOauth2ReturnUrls
-echo "OBO GUI:     $OBO_URL"; echo "2LO/3LO GUI: $OAUTH_URL"
+echo "OBO GUI:     $OBO_URL"; echo "2LO/3LO GUI: $OAUTH_URL"; echo "RBAC GUI:    $RBAC_URL"; echo "Entra GUI:   $ENTRA_URL"

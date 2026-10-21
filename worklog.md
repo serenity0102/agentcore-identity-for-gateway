@@ -1,3 +1,199 @@
+## [2026-10-21] Entra GUI 网址和账号写进 RUNBOOK-entra-id.md 和三份 deck
+- **改了什么**：
+  - `RUNBOOK-entra-id.md` 目录之后加了「Demo access」一节，直接显示：Entra demo GUI 和 RBAC GUI 的 Entra 卡片、4 个 Entra 用户和密码、MFA 方法、每个用户的预期结果；
+  - 这份 runbook 加入 `.gitignore`（之前从未 commit 过）；
+  - 三份 deck 的 accounts 页和 Entra demo 步骤都加上 GUI 路径（由 subagent 完成）。
+- **为什么改**：用户要求；密码放进 runbook 的做法由用户选定（runbook 改为 gitignore）。
+- **结果**：`git check-ignore` 确认 runbook 已被忽略；`<details>` 30/30 配对。
+
+## [2026-10-20] RUNBOOK-cognito-idc.md 重新排序 part
+- **改了什么**：
+  - part 顺序改为：Part 1 · Amazon Quick → Gateway、Part 2 · 3LO、Part 3 · 2LO（原 Part 1）、Part 4 · OBO（原 Part 3，含 per-user Gateway RBAC）；目录和架构总览表按新顺序排列；
+  - 正文里指向旧构建顺序的「Part N」改成描述性名称或新编号；
+  - 更新其他文件的交叉引用（README、tests、Quick 指南、flow、email、三份 deck 的 build 脚本），然后重建三份 deck、两个 flow 页面和 email PDF。
+- **为什么改**：用户要求把 Quick → Gateway 放在第一部分。
+- **结果**：调整前后逐行对比，没有丢失任何行；`<details>` 60/60 配对；三份 deck 的检查都通过。
+
+## [2026-10-20] Cognito runbook 新增 Part 4：Amazon Quick → rsidc-mall-gateway（由 Quick 做 3LO，不是 OBO）
+- **改了什么**：
+  - 新增架构图 `docs/architecture-quick-mall.svg`（.tsx 一并保存；skill 里的 scene 是 `rsidc_quick_mall.tsx`）；
+  - `RUNBOOK-cognito-idc.md` 新增 Part 4，在目录和架构总览表里加了对应条目。共 7 个可折叠步骤：分类（3LO / OBO 对比）、Quick connector 配置（含 "Signed in as wei@techfinance.example.com"）、AWS 端设置、wei 的 4 个 tool、"No access token" 排错（history/007）、demo 步骤（ds1 部分标记为待记录）、清理。
+- **为什么改**：用户要求加上 Quick 访问 mall gateway 的架构，并说明属于 3LO 还是 OBO。
+- **结果**：
+  - `<details>` 60/60 配对，代码块完整闭合，图片路径都存在；
+  - client secret 没有出现在任何文件里；
+  - 渲染成 HTML 后，Part 4 的架构图不用展开就能看到，7 个步骤默认收起。
+
+## [2026-10-20] 修复 Amazon Quick MCP connector 拿不到 access token
+- **改了什么**：
+  - 在 Cognito 新建 resource server，identifier 就是 mall Gateway 的 MCP URL，scope 为 `invoke`；
+  - 把这个 scope 加进 `rsidc-quick-mcp` 和 OBO client 的允许 scope（只做增量修改，完整回写配置并比对前后差异）；
+  - 把以上写进 `infra/16-mall-cognito.py`，可以重复执行；新增 history/007，更新 Quick 指南。
+- **为什么改**：Quick 在 authorize 和 token 请求里都带 RFC 8707 的 `resource` 参数，而 Cognito 只接受已注册的 resource server，否则 token 端点返回 `invalid_grant`。这个结论有 CloudTrail 记录，也自己复现过。
+- **结果**：带 `resource` 也能拿到 token，`aud` 为 Gateway URL；Cedar 照常按用户执行（wei 4 个 tool，ds1 2 个，ds1 调用 hourly 被拒）；mall 回归 25/25。
+
+## [2026-10-20] Entra ID demo web GUI (2LO / 3LO / OBO in one page)
+- **改了什么**：
+  - 新增 `webchat/entra_app.py` 和 `entra_index.html`：Entra 登入（PKCE）和登出（`logout_hint`），以及 2LO、OBO（含 Graph）、3LO（consent → callback → CompleteResourceTokenAuth → Token Vault）三个面板，页面只显示 claims；
+  - `infra/14-deploy-webchat.sh` 增加第 4 个 function `entra`，新的 inline policy 是 `infra/policies/webchat-entra-permissions.json`；
+  - `18-entra-setup.py` 增加 `WEB_ENTRA_URL` 的 redirect；`20-entra-agentcore.sh` 的 return URL 改成合并，不再覆盖。
+- **为什么改**：用户要求和 Cognito/IdC 一样，给 Entra 也做一个前端 GUI，方便 demo。
+- **涉及资源**：Lambda `rsidc-webchat-entra`，HTTP API `https://se2shbmsej.execute-api.ap-southeast-1.amazonaws.com`，`rsidc-webchat-role` 上的 inline policy `webchat-entra`，Entra test client 的 redirect URI，Entra workload identity 的 return URL。
+- **结果**：
+  - 浏览器端到端测试（lo3user）：2LO 拿到 app roles List + Footfall；OBO 的 aud 换成 rsidc-mall-api，保留了 user，lo3user 没有 role 所以是 0 个 tool；3LO 走完 TOKEN_FROM_VAULT 和 Graph /me；登出正常；
+  - 回归：4 个 GUI 都返回 200；entra 2lo 7/7、obo 10/10、Part 6 19/19。
+
+## [2026-10-20] Cognito runbook：OBO 和 Gateway RBAC 的架构图直接显示
+- **改了什么**：
+  - `RUNBOOK-cognito-idc.md` 的 OBO 架构图原本藏在第一个折叠步骤里，现在移到 Part 3 开头直接显示，和 2LO、3LO 一致；
+  - Gateway tool RBAC 一节直接显示 `architecture-rbac.svg`（demo 版）和 `architecture-rbac-mall.svg`（客户版），并加上 flow 动画的链接。
+- **为什么改**：用户指出 OBO 部分看不到架构图。
+- **结果**：`<details>` 53/53 配对，图片路径都存在；不展开任何步骤也能看到 5 张架构图。
+
+## [2026-10-20] RUNBOOK 改名为 RUNBOOK-cognito-idc.md，并重组为 2LO / 3LO / OBO 三部分
+- **改了什么**：
+  - `git mv RUNBOOK.md RUNBOOK-cognito-idc.md`；结构改为 Shared foundation → Part 1 · 2LO → Part 2 · 3LO → Part 3 · OBO（包括 Gateway tool RBAC）→ Appendix；
+  - 每部分开头是一张概览表，列出每一步的名称、用途和结果；每一步放在可折叠的 `<details>` 里，点开才看细节；
+  - Entra 相关的 Part 6、6b、7 只留一行指向 `RUNBOOK-entra-id.md` 的链接；
+  - `docs/build_console_shots.py` 改为按每一步的 `<details>` anchor 插入截图。顺便修了一个旧问题：Step 9、10 的 Cognito 截图之前错放在 OBO 的 Step 9、10 下面，现在放在 2LO 的对应步骤；
+  - 全仓库的引用都更新了（README、infra/README、tests、docs/flow*、email、review、decks、scheduled task），并重建 flow.html、三份 deck 和 email PDF。
+- **为什么改**：用户要求 Cognito + IdC 和 Entra 两份 runbook 分开，每份按 2LO、3LO、OBO 组织，并且能一眼看到全部步骤。
+- **结果**：
+  - 非 Entra 部分的每一行内容都原样搬到了新文件里（逐行覆盖检查，0 缺失）；
+  - 53 个 `<details>` 开闭平衡，代码块没有跨块；data-views 和 console-shots 的 marker 都还在；
+  - 用 CommonMark 渲染后在浏览器里检查过，可以正常折叠和展开；
+  - 三份 deck 的关键字扫描为 0，没有重复的 slide 文件。
+
+## [2026-10-19] 2LO/3LO deck 彻底分开；demo 输入写进 notes；Entra 架构图
+- **改了什么**：
+  - 2LO deck 里不再有任何 3LO 内容，3LO deck 里不再有任何 2LO 内容：文字、表格、粤语 notes、原图里的 caption（用 `docs/decks/recaption.py` 重画）、截图裁切都处理了；
+  - 每张 demo、setup 和 cheat sheet 的 notes 末尾都加了 【Demo 輸入】（URL、用户/密码、点击或命令、预期结果）；
+  - 新增三张 Entra ID 架构图：`docs/architecture-entra-{2lo,3lo,obo}.svg`，风格与 Cognito + IdC 版一致，并放进对应的 deck。
+- **为什么改**：用户要求 2LO 和 3LO 完全分开，demo 输入放在 notes 里，Entra 也要有和 Cognito/IdC 一样的架构图。
+- **涉及文件**：`docs/decks/build_{2lo,3lo,obo}.py`、`docs/decks/fix_layout.py`（跳过 "Scenario:" 开头的页）、`docs/decks/recaption.py`、`docs/decks/img/*`，以及 skill 里的三个 scene `rsidc_entra_{2lo,3lo,obo}.tsx`。
+- **结果**：
+  - 2LO 46 页、3LO 46 页、OBO 27 页；
+  - 另一流程的关键字命中为 0；每份 deck 的 demo 页都有 【Demo 輸入】；没有重复的 slide 文件；
+  - 都在 PowerPoint 导出后检查过。
+
+## [2026-10-19] 三份 deck 把 demo 穿插进讲解里，加 demo 步骤和粤语讲稿
+- **改了什么**：
+  - 2LO、3LO、OBO 三份 deck 的每一页场景 frame 后面，都紧跟一页「Demo · step」：左边是 Cognito + IdC，右边是 Entra ID，每边写清楚要做什么、会看到什么、去哪里看，并配 GUI 截图；
+  - 最前面加了 demo 准备页，以及用户名、密码和 URL 页（红色 INTERNAL banner）；
+  - 每一页都加了粤语 speaker notes；原来单独的 demo 页移到附录做 cheat sheet；
+  - 新增 `tests/entra_demo.py`，用于现场展示 claims，不会打印 token；
+  - 修了一个 bug：deck 超过 31 页后，新加的 slide 文件名会和保留的原始 slide 撞名，现在会重新编号。
+- **为什么改**：用户要求一边讲原理一边 demo，并要有 demo 步骤（URL、用户、密码）和粤语讲稿；密码按用户要求放在 slide 上。
+- **涉及文件**：`docs/decks/build_{2lo,3lo,obo}.py`、`docs/decks/img/*`、`tests/entra_demo.py`、`.gitignore`（三份 deck 都设为不提交）。
+- **结果**：2LO 47 页、3LO 45 页、OBO 26 页；每份 deck 的 notes 都覆盖全部页面；没有重复的 zip part；都在 PowerPoint 导出后逐页检查过；原始 deck 没动。
+
+## [2026-10-19] Part 7: Entra ID × AgentCore Identity（2LO / 3LO / OBO）+ 三份 deck
+- **改了什么**：
+  - Entra：新建 app `rsidc-entra-agent`；
+  - AgentCore：新建 credential provider `rsidc-entra`（MicrosoftOauth2，一个 provider 同时用于 2LO、3LO、OBO）和 runtime `rsidc_entra_agent`，加上 `agent_entra/` 和 `tests/entra_identity_tests.py`；
+  - 新增三份 deck：`docs/AgentCore-Identity-2LO.pptx`、`-3LO.pptx`、`-OBO.pptx`，以及 `docs/decks/*`、`docs/part7/*`、history/006。
+- **为什么改**：用户要求补上 Entra ID 的 2LO、3LO、OBO 场景，并把实现方法写进 deck 的 32–53 页（Cognito + IdC 和 Entra ID 两种做法都要有），分成三份 PPT。
+- **涉及资源**：
+  - runtime `rsidc_entra_agent`、provider `rsidc-entra`、role `rsidc-entra-runtime-role`；
+  - Entra app `rsidc-entra-agent` 和用户 `lo3user`；
+  - `rsidc-mall-api` 的 App Roles 增加了 Application（属于增量修改）。
+- **结果**：
+  - 测试：2LO 7/7、OBO 10/10、3LO 5/5（连跑两次），Part 6 回归 19/19；
+  - 三份 deck 都在 PowerPoint 导出后逐页检查过；
+  - 遗留问题：Entra Security defaults 强制注册 MFA，wei/ds1/chen 暂时无法交互式登录，要等用户在门户里关掉 Security defaults。
+
+## [2026-10-07] RBAC GUI：Entra ID 登出
+- **改了什么**：
+  - 加了「Sign out of Entra ID」按钮：先清掉 app 的 session，再调用 Entra 的 `/logout`，带上 `logout_hint` 和已注册的 `post_logout_redirect_uri`（`/entra/signed-out`）；
+  - 回到 GUI 后显示「✓ Signed out」；
+  - test client 的 ID token 增加了 `login_hint` optional claim，并注册了 signed-out 的 redirect URI。
+- **为什么改**：用户要求 Entra 版有登出功能。原来的链接会停在 Entra 的选择账号页面，也回不到 GUI。
+- **涉及文件/资源**：`webchat/rbac_app.py`、`rbac_index.html`、`infra/18-entra-setup.py`；Lambda `rsidc-webchat-rbac`；Entra app `rsidc-mall-test-client`。
+- **结果**：ds1 登出后回到 GUI 并显示已登出；刷新后要重新登录；没有 session 时 API 返回 401；同一个浏览器里登着 3 个 Entra 账号也不会弹出选择账号。
+
+## [2026-10-07] RBAC GUI 加入 Entra ID 登录
+- **改了什么**：`webchat/rbac_app.py` 和 `rbac_index.html` 增加「Sign in with Entra ID」和 Entra 卡片；`infra/18-entra-setup.py` 给 test client 加上 GUI 的 redirect URI；`infra/14-deploy-webchat.sh` 把 ENTRA 相关环境变量传给 Lambda。
+- **为什么改**：用户要求把 Entra 版放进同一个 GUI。
+- **涉及文件/资源**：Lambda `rsidc-webchat-rbac`；Entra app `rsidc-mall-test-client` 的 redirect URI。
+- **结果**：浏览器里用 Entra 的 wei、ds1、chen 登录，分别能用 4、2、0 个 tool；同一个 GUI 上 Cognito 的 ds1 结果不变。
+
+## [2026-10-07] Entra ID 版 tool RBAC（Part 6）
+- **改了什么**：
+  - 用 `infra/18-entra-setup.py`（Graph）配置 Entra：两个 app、4 个 App Role、wei/ds1/chen 三个用户，以及按用户的 role 分配；
+  - 用 `infra/18-entra-gateway.sh` 建了直接信任 Entra 的 Gateway 和单独的 policy engine；
+  - 测试脚本 `tests/entra_rbac_tests.py`；新增 `docs/architecture-rbac-entra.svg`，`flow-rbac.html` 加了 Entra 标签页。
+- **为什么改**：用户有 Entra tenant，要验证 Entra ID 下的 Gateway RBAC。
+- **涉及文件/资源**：
+  - Entra：rsidc-mall-api 和 rsidc-mall-test-client 两个 app，以及 3 个用户；
+  - AWS：gateway rsidc-mall-entra-gateway、policy engine rsidc_mall_entra_pe，以及 rsidc-mall-gateway-role 上的 inline policy `entra-gateway`。
+- **结果**：
+  - Entra 测试：LOG_ONLY 15/15、ENFORCE 19/19、权限变更 4/4；
+  - Cognito 回归不受影响：mall 25/25、Part 3 12/12、OBO 16/16；
+  - Azure 侧只用了免费功能；
+  - 踩到的坑：policy 名称在整个 Region 内必须唯一；共用的 role 需要单独加 inline policy；IAM 生效有延迟，需要重试。
+
+## [2026-10-06] 把 runtime 和 gateway 登记到 AWS Agent Registry（Part 5）
+- **改了什么**：
+  - 在 ap-northeast-1 建了 registry `rsidc-registry`，审批方式是人工审批；
+  - 登记了 5 条 record，都已经是 APPROVED：2 个 runtime（CUSTOM 类型）和 3 个 gateway（MCP 类型，含 tool 列表）；
+  - 新增 `infra/17-agent-registry.py` 和 `infra/registry/`。
+- **为什么改**：用户要求把这些 agent 和 MCP server 放进 Agent Registry，方便发现和治理。
+- **涉及文件/资源**：registry `wCf04AFofS2kuI0i`，以及 5 条 record（ID 见 RUNBOOK Part 5）。
+- **结果**：
+  - 语义搜索能按自然语言找到正确的 record，重跑会全部跳过（幂等）；
+  - 限制：Agent Registry 不支持 ap-southeast-1，所以 registry 建在东京，跨 Region 不能自动发现；
+  - endpoint 都需要 JWT，没法用 URL 同步，所以 record 是手工建的；
+  - 第一次让 subagent 做时，它在 `aws … help` 的分页器上卡住了。
+
+## [2026-10-06] Tool RBAC web GUI（API Gateway → Lambda）+ 架构图和 flow 更新
+- **改了什么**：
+  - 新增 `webchat/rbac_app.py` 和 `rbac_index.html`（第三个 GUI），`infra/14-deploy-webchat.sh` 增加 `rbac` 这个 function；
+  - `docs/architecture-rbac.svg` 加入 GUI（API Gateway → Lambda），并去掉了起点画错的 JWKS 箭头（它画在 Policy 上，实际校验 JWT 的是 Gateway）；
+  - 新增客户版架构图 `docs/architecture-rbac-mall.svg`（Quick 和 GUI → Gateway → mall tools，Cognito group 映射）；
+  - `docs/flow-rbac.html` 改为两个标签页（demo 和客户版），由 `docs/flow-rbac.config.mjs` 生成。
+- **为什么改**：用户要像 OBO demo 一样，有一个可以在浏览器里操作的 RBAC GUI，并同步更新架构图和 flow。
+- **涉及文件/资源**：Lambda `rsidc-webchat-rbac`，HTTP API `80l9l7cdk2`，Cognito OBO client 新增 callback 和 logout URL。
+- **结果**：wei、ds1、chen 在浏览器里的结果都符合预期（见 RUNBOOK Step 14b）。flow 两个标签页都能从头放到尾，没有 JS 错误。修复了页面同时发出两个请求、在并发 1 下被限流（429）的问题。
+
+## [2026-10-06] Part 4：客户版（Amazon Quick → AgentCore Gateway(MCP) → Lambda tools），权限映射放在 Cognito group
+- **改了什么**：
+  - 新建 Gateway `rsidc-mall-gateway-skatnrktwr`，它本身就是 MCP server；一个 Lambda target `mall` 提供客户的 4 个 tool
+  - Policy Engine `rsidc_mall_pe-njxtj4u_wi`（ENFORCE），每个 tool 一条固定的 Cedar 规则
+  - Cognito groups `mall-analyst` / `mall-viewer`，组的 Description 里写映射
+  - 给 Quick 用的 app client `rsidc-quick-mcp`
+  - trigger 增加 Cognito group 作为权限来源（`ROLE_SOURCES=cognito,idc`），并改为调用 `live` alias
+  - 新增 `docs/quick-mcp-connector.md`、RUNBOOK Part 4、history/005
+- **为什么改**：客户的前端是 Amazon Quick，映射用 Cognito group 管理；用户要求用 Gateway 当 MCP server、用 Lambda 做 tool
+- **涉及文件/资源**：`infra/16-mall-*`、`lambda/mall_tools/`、`lambda/pretoken/handler.py`、`infra/15-rbac-pretoken.py`、`tests/mall_rbac_tests.py`
+- **结果**：LOG_ONLY 15/15、ENFORCE 25/25、change 5/5；回归 Part 3 12/12、OBO 16/16、2LO/3LO 18/18，两个 webchat 都返回 200。部署时发现 trigger 在 `$LATEST` 上被提前更新的问题，已修复（history/005）
+
+## [2026-10-06] Part 3：AgentCore Gateway 按用户限制 tool（Cedar + Entra 风格的 roles claim，映射放在 IdC）
+- **改了什么**：
+  - 新建 Gateway `rsidc-rbac-gateway-xwjxlwbllu`（入站用 Cognito access token，`allowedClients` = OBO client），后面两个 tool：Lambda `rsidc-tool-sales`（A）和 `rsidc-tool-crm`（B）
+  - 新建 Policy Engine `rsidc_rbac_pe-b396yeuocw`，每个 tool 一条固定 Cedar 规则（要求 `roles` 里有 `Tools.X.Read`），先 LOG_ONLY 再 ENFORCE
+  - 新增 Cognito Pre Token Generation V2 trigger `rsidc-pretoken-roles`：按 email 查 IdC 组，读组 Description 里的映射，写入 access token 的 `roles`；出错即拒绝登录
+  - 新建项目自有的 IdC 组 `rsidc-gw-analyst`（wei）和 `rsidc-gw-viewer`（ds1）
+  - 打开 gateway 日志投递
+  - 新增脚本 `infra/15-rbac-*`、测试 `tests/rbac_tests.py` 和 `tests/rbac_change_tests.py`
+- **为什么改**：回答两个问题：Gateway 能否按用户或角色限制 tool；能否用 IdP 的组实现 RBAC 而不改 MCP server 代码。客户可能用 Entra ID，所以 claim 采用 Entra App Role 格式
+- **涉及文件/资源**：见 RUNBOOK Part 3。已有的 IdC 组不是本项目创建的，所以没有改它们的 Description，改用项目自有的组
+- **结果**：
+  - 测试矩阵：baseline 9/9，LOG_ONLY 12/12，ENFORCE 12/12，只改 IdC 的变更测试 10/10
+  - 回归：OBO 16/16，2LO/3LO 18/18，webchat 正常
+  - 发现：`tools/list` 自动过滤；被拒的 `tools/call` 返回 HTTP 200 + `isError`；被拒的 JWT 返回 403（不是 401）；已签发的 token 要等过期后才失去权限
+
+## [2026-10-06] 移除 Lambda 内的 IP 白名单
+- **改了什么**：从 `webchat/lambda_adapter.py` 删除 `ALLOWED_IPS` 检查，并从 `infra/14-deploy-webchat.sh` 删除 IP 检测和该环境变量
+- **为什么改**：用户要求，之后会在 API 外层限制 IP
+- **涉及文件/资源**：Lambda `rsidc-webchat-obo`、`rsidc-webchat-oauth`
+- **结果**：两个 GUI 返回 200；来源 IP 为 9.9.9.9 的模拟请求也返回 200（说明已不再过滤）。目前只靠 Cognito 登录保护
+
+## [2026-10-06] Web GUI 改为 API Gateway HTTP API → Lambda（去掉 Function URL）
+- **改了什么**：`infra/14-deploy-webchat.sh` 改为快速创建 HTTP API（`$default` 路由、payload 2.0），Lambda 资源策略只允许对应 API（`SourceArn`），删除了 Function URL；Cognito callback 和 workload identity return URL 换成 API 地址并清理旧 URL；webchat 角色增加 3LO provider secret 的 `GetSecretValue`
+- **为什么改**：Function URL 的 `Principal:*` 被账号安全自动化（`lambda_function_policy_block_public_access`）自动移除，用户要求放在 API Gateway 后面；3LO 绑定在 Lambda 角色下报 AccessDenied
+- **涉及文件/资源**：API `604penmkc9`（OBO）、`k9vfijvbu9`（OAuth），Lambda `rsidc-webchat-obo`/`oauth`，`infra/policies/webchat-permissions.json`，`webchat/lambda_adapter.py`
+- **结果**：浏览器端到端以 wei 测试：OBO SQL 和自然语言（约 6.2s）、2LO、3LO 强制重新授权都通过；非白名单 IP 返回 403
+
 ## [2026-10-06] Web GUI 部署到 AWS（Lambda Function URL，IP 白名单）+ README 加 2LO/3LO/OBO 对比
 - **改了什么**：新增 `webchat/lambda_adapter.py`（把 Function URL 事件转成原 http.server handler，按 sourceIp/CIDR 放行）；`app.py`/`oauth_app.py` 的 base URL 改为可配；`oauth_app.py` 改用默认凭证链；新增 `infra/14-deploy-webchat.sh` 和 `infra/policies/webchat-permissions.json`；`13-web-login-client.py` 支持 `WEBCHAT_URLS`；README 加 2LO/3LO/OBO 对比表
 - **为什么改**：用户需要在 AWS 上用 GUI；Cognito 的非 localhost 回调必须用 HTTPS，所以 Function URL 是最简单的选择（不用 EC2、证书、ALB）

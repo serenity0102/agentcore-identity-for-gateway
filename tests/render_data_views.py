@@ -1,5 +1,5 @@
 """Render the data-access evidence (admin full data + per-persona views from results-data-views.json)
-as Markdown (RUNBOOK) and HTML (email) fragments: docs/data-views.md, docs/data-views.html."""
+as Markdown (RUNBOOK-cognito-idc.md, Part 4 · OBO, Step 5) and HTML (email) fragments: docs/data-views.md, docs/data-views.html."""
 import html, json, os, time, boto3
 
 D = os.path.dirname(os.path.abspath(__file__)); DOCS = os.path.join(D, "..", "docs")

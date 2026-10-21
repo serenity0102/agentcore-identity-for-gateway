@@ -1,0 +1,142 @@
+{
+ "phase": "log_only",
+ "time": "2026-10-07T11:26:37+0800",
+ "gateway": "https://rsidc-mall-entra-gateway-xmcsl34bfw.gateway.bedrock-agentcore.ap-southeast-1.amazonaws.com/mcp",
+ "cases": [
+  {
+   "case": "wei tools/list",
+   "expect": [
+    "mall___get_footfall_summary",
+    "mall___get_hourly_traffic",
+    "mall___get_mall_list",
+    "mall___get_zone_comparison"
+   ],
+   "actual": [
+    "mall___get_footfall_summary",
+    "mall___get_hourly_traffic",
+    "mall___get_mall_list",
+    "mall___get_zone_comparison"
+   ],
+   "pass": true,
+   "evidence": "http=200 ver=2.0 roles=['Tools.Mall.List', 'Tools.Mall.Zone', 'Tools.Mall.Hourly', 'Tools.Mall.Footfall']"
+  },
+  {
+   "case": "wei tools/call get_mall_list",
+   "expect": true,
+   "actual": true,
+   "pass": true,
+   "evidence": "http=200 {\"tool\":\"get_mall_list\",\"result\":[{\"mall_id\":\"HK01\",\"name\":\"Harbour Mall\",\"city\":\"Hong Kong\"},{\"mall_id\":\"HK02"
+  },
+  {
+   "case": "wei tools/call get_footfall_summary",
+   "expect": true,
+   "actual": true,
+   "pass": true,
+   "evidence": "http=200 {\"tool\":\"get_footfall_summary\",\"result\":{\"mall_id\":\"HK01\",\"date\":\"2026-10-01\",\"visitors\":1010}}"
+  },
+  {
+   "case": "wei tools/call get_hourly_traffic",
+   "expect": true,
+   "actual": true,
+   "pass": true,
+   "evidence": "http=200 {\"tool\":\"get_hourly_traffic\",\"result\":[{\"hour\":\"10:00\",\"visitors\":459},{\"hour\":\"11:00\",\"visitors\":463},{\"hour\""
+  },
+  {
+   "case": "wei tools/call get_zone_comparison",
+   "expect": true,
+   "actual": true,
+   "pass": true,
+   "evidence": "http=200 {\"tool\":\"get_zone_comparison\",\"result\":[{\"zone\":\"North Atrium\",\"visitors\":2902},{\"zone\":\"Food Court\",\"visitors"
+  },
+  {
+   "case": "ds1 tools/list",
+   "expect": [
+    "mall___get_footfall_summary",
+    "mall___get_hourly_traffic",
+    "mall___get_mall_list",
+    "mall___get_zone_comparison"
+   ],
+   "actual": [
+    "mall___get_footfall_summary",
+    "mall___get_hourly_traffic",
+    "mall___get_mall_list",
+    "mall___get_zone_comparison"
+   ],
+   "pass": true,
+   "evidence": "http=200 ver=2.0 roles=['Tools.Mall.List', 'Tools.Mall.Footfall']"
+  },
+  {
+   "case": "ds1 tools/call get_mall_list",
+   "expect": true,
+   "actual": true,
+   "pass": true,
+   "evidence": "http=200 {\"tool\":\"get_mall_list\",\"result\":[{\"mall_id\":\"HK01\",\"name\":\"Harbour Mall\",\"city\":\"Hong Kong\"},{\"mall_id\":\"HK02"
+  },
+  {
+   "case": "ds1 tools/call get_footfall_summary",
+   "expect": true,
+   "actual": true,
+   "pass": true,
+   "evidence": "http=200 {\"tool\":\"get_footfall_summary\",\"result\":{\"mall_id\":\"HK01\",\"date\":\"2026-10-01\",\"visitors\":1010}}"
+  },
+  {
+   "case": "ds1 tools/call get_hourly_traffic",
+   "expect": true,
+   "actual": true,
+   "pass": true,
+   "evidence": "http=200 {\"tool\":\"get_hourly_traffic\",\"result\":[{\"hour\":\"10:00\",\"visitors\":459},{\"hour\":\"11:00\",\"visitors\":463},{\"hour\""
+  },
+  {
+   "case": "ds1 tools/call get_zone_comparison",
+   "expect": true,
+   "actual": true,
+   "pass": true,
+   "evidence": "http=200 {\"tool\":\"get_zone_comparison\",\"result\":[{\"zone\":\"North Atrium\",\"visitors\":2902},{\"zone\":\"Food Court\",\"visitors"
+  },
+  {
+   "case": "chen tools/list",
+   "expect": [
+    "mall___get_footfall_summary",
+    "mall___get_hourly_traffic",
+    "mall___get_mall_list",
+    "mall___get_zone_comparison"
+   ],
+   "actual": [
+    "mall___get_footfall_summary",
+    "mall___get_hourly_traffic",
+    "mall___get_mall_list",
+    "mall___get_zone_comparison"
+   ],
+   "pass": true,
+   "evidence": "http=200 ver=2.0 roles=None"
+  },
+  {
+   "case": "chen tools/call get_mall_list",
+   "expect": true,
+   "actual": true,
+   "pass": true,
+   "evidence": "http=200 {\"tool\":\"get_mall_list\",\"result\":[{\"mall_id\":\"HK01\",\"name\":\"Harbour Mall\",\"city\":\"Hong Kong\"},{\"mall_id\":\"HK02"
+  },
+  {
+   "case": "chen tools/call get_footfall_summary",
+   "expect": true,
+   "actual": true,
+   "pass": true,
+   "evidence": "http=200 {\"tool\":\"get_footfall_summary\",\"result\":{\"mall_id\":\"HK01\",\"date\":\"2026-10-01\",\"visitors\":1010}}"
+  },
+  {
+   "case": "chen tools/call get_hourly_traffic",
+   "expect": true,
+   "actual": true,
+   "pass": true,
+   "evidence": "http=200 {\"tool\":\"get_hourly_traffic\",\"result\":[{\"hour\":\"10:00\",\"visitors\":459},{\"hour\":\"11:00\",\"visitors\":463},{\"hour\""
+  },
+  {
+   "case": "chen tools/call get_zone_comparison",
+   "expect": true,
+   "actual": true,
+   "pass": true,
+   "evidence": "http=200 {\"tool\":\"get_zone_comparison\",\"result\":[{\"zone\":\"North Atrium\",\"visitors\":2902},{\"zone\":\"Food Court\",\"visitors"
+  }
+ ]
+}

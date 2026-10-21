@@ -1,0 +1,156 @@
+{
+ "phase": "enforce",
+ "time": "2026-10-20T11:07:40+0800",
+ "gateway": "https://rsidc-mall-entra-gateway-xmcsl34bfw.gateway.bedrock-agentcore.ap-southeast-1.amazonaws.com/mcp",
+ "cases": [
+  {
+   "case": "wei tools/list",
+   "expect": [
+    "mall___get_footfall_summary",
+    "mall___get_hourly_traffic",
+    "mall___get_mall_list",
+    "mall___get_zone_comparison"
+   ],
+   "actual": [
+    "mall___get_footfall_summary",
+    "mall___get_hourly_traffic",
+    "mall___get_mall_list",
+    "mall___get_zone_comparison"
+   ],
+   "pass": true,
+   "evidence": "http=200 ver=2.0 roles=['Tools.Mall.List', 'Tools.Mall.Zone', 'Tools.Mall.Hourly', 'Tools.Mall.Footfall']"
+  },
+  {
+   "case": "wei tools/call get_mall_list",
+   "expect": true,
+   "actual": true,
+   "pass": true,
+   "evidence": "http=200 {\"tool\":\"get_mall_list\",\"result\":[{\"mall_id\":\"HK01\",\"name\":\"Harbour Mall\",\"city\":\"Hong Kong\"},{\"mall_id\":\"HK02"
+  },
+  {
+   "case": "wei tools/call get_footfall_summary",
+   "expect": true,
+   "actual": true,
+   "pass": true,
+   "evidence": "http=200 {\"tool\":\"get_footfall_summary\",\"result\":{\"mall_id\":\"HK01\",\"date\":\"2026-10-01\",\"visitors\":1010}}"
+  },
+  {
+   "case": "wei tools/call get_hourly_traffic",
+   "expect": true,
+   "actual": true,
+   "pass": true,
+   "evidence": "http=200 {\"tool\":\"get_hourly_traffic\",\"result\":[{\"hour\":\"10:00\",\"visitors\":459},{\"hour\":\"11:00\",\"visitors\":463},{\"hour\""
+  },
+  {
+   "case": "wei tools/call get_zone_comparison",
+   "expect": true,
+   "actual": true,
+   "pass": true,
+   "evidence": "http=200 {\"tool\":\"get_zone_comparison\",\"result\":[{\"zone\":\"North Atrium\",\"visitors\":2902},{\"zone\":\"Food Court\",\"visitors"
+  },
+  {
+   "case": "ds1 tools/list",
+   "expect": [
+    "mall___get_footfall_summary",
+    "mall___get_mall_list"
+   ],
+   "actual": [
+    "mall___get_footfall_summary",
+    "mall___get_mall_list"
+   ],
+   "pass": true,
+   "evidence": "http=200 ver=2.0 roles=['Tools.Mall.List', 'Tools.Mall.Footfall']"
+  },
+  {
+   "case": "ds1 tools/call get_mall_list",
+   "expect": true,
+   "actual": true,
+   "pass": true,
+   "evidence": "http=200 {\"tool\":\"get_mall_list\",\"result\":[{\"mall_id\":\"HK01\",\"name\":\"Harbour Mall\",\"city\":\"Hong Kong\"},{\"mall_id\":\"HK02"
+  },
+  {
+   "case": "ds1 tools/call get_footfall_summary",
+   "expect": true,
+   "actual": true,
+   "pass": true,
+   "evidence": "http=200 {\"tool\":\"get_footfall_summary\",\"result\":{\"mall_id\":\"HK01\",\"date\":\"2026-10-01\",\"visitors\":1010}}"
+  },
+  {
+   "case": "ds1 tools/call get_hourly_traffic",
+   "expect": false,
+   "actual": false,
+   "pass": true,
+   "evidence": "http=200 Tool Execution Denied: Tool call not allowed due to policy enforcement [No policy applies to the request (deni"
+  },
+  {
+   "case": "ds1 tools/call get_zone_comparison",
+   "expect": false,
+   "actual": false,
+   "pass": true,
+   "evidence": "http=200 Tool Execution Denied: Tool call not allowed due to policy enforcement [No policy applies to the request (deni"
+  },
+  {
+   "case": "chen tools/list",
+   "expect": [],
+   "actual": [],
+   "pass": true,
+   "evidence": "http=200 ver=2.0 roles=None"
+  },
+  {
+   "case": "chen tools/call get_mall_list",
+   "expect": false,
+   "actual": false,
+   "pass": true,
+   "evidence": "http=200 Tool Execution Denied: Tool call not allowed due to policy enforcement [No policy applies to the request (deni"
+  },
+  {
+   "case": "chen tools/call get_footfall_summary",
+   "expect": false,
+   "actual": false,
+   "pass": true,
+   "evidence": "http=200 Tool Execution Denied: Tool call not allowed due to policy enforcement [No policy applies to the request (deni"
+  },
+  {
+   "case": "chen tools/call get_hourly_traffic",
+   "expect": false,
+   "actual": false,
+   "pass": true,
+   "evidence": "http=200 Tool Execution Denied: Tool call not allowed due to policy enforcement [No policy applies to the request (deni"
+  },
+  {
+   "case": "chen tools/call get_zone_comparison",
+   "expect": false,
+   "actual": false,
+   "pass": true,
+   "evidence": "http=200 Tool Execution Denied: Tool call not allowed due to policy enforcement [No policy applies to the request (deni"
+  },
+  {
+   "case": "tampered ds1 token (roles forged to all 4)",
+   "expect": 403,
+   "actual": 403,
+   "pass": true,
+   "evidence": "signature check"
+  },
+  {
+   "case": "Cognito access token (other issuer)",
+   "expect": 403,
+   "actual": 403,
+   "pass": true,
+   "evidence": "issuer/JWKS"
+  },
+  {
+   "case": "Entra token for Microsoft Graph (wrong audience)",
+   "expect": true,
+   "actual": true,
+   "pass": true,
+   "evidence": "http=403 aud=https://graph.microsoft.com"
+  },
+  {
+   "case": "garbage bearer",
+   "expect": 401,
+   "actual": 401,
+   "pass": true,
+   "evidence": ""
+  }
+ ]
+}

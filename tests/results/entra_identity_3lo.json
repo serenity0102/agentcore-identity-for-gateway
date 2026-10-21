@@ -1,0 +1,49 @@
+{
+ "phase": "3lo",
+ "time": "2026-10-19T16:46:00+0800",
+ "runtime": "arn:aws:bedrock-agentcore:ap-southeast-1:383386985941:runtime/rsidc_entra_agent-TbPbf79MRf",
+ "cases": [
+  {
+   "case": "first call -> consent required",
+   "expect": "CONSENT_REQUIRED",
+   "actual": "CONSENT_REQUIRED",
+   "pass": true,
+   "evidence": "http=200 has_url=True err=None"
+  },
+  {
+   "case": "consent completed -> AgentCore redirected to return URL",
+   "expect": true,
+   "actual": true,
+   "pass": true,
+   "evidence": "params=['session_id']"
+  },
+  {
+   "case": "session bound to the signed-in user (CompleteResourceTokenAuth)",
+   "expect": true,
+   "actual": true,
+   "pass": true,
+   "evidence": "no exception"
+  },
+  {
+   "case": "token from vault -> Graph /me is lo3user",
+   "expect": [
+    "TOKEN_FROM_VAULT",
+    "lo3user@tojackywugmail.onmicrosoft.com"
+   ],
+   "actual": [
+    "TOKEN_FROM_VAULT",
+    "lo3user@tojackywugmail.onmicrosoft.com"
+   ],
+   "pass": true,
+   "evidence": "graph_http=200 err=None"
+  },
+  {
+   "case": "wei (no consent of its own) does not get lo3user's token",
+   "expect": "CONSENT_REQUIRED",
+   "actual": "CONSENT_REQUIRED",
+   "pass": true,
+   "evidence": "vault is per (agent, user)"
+  }
+ ],
+ "consent_url_retries": 0
+}

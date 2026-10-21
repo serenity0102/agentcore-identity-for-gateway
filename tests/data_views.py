@@ -1,5 +1,5 @@
 """Evidence for permissions: what each persona actually gets back through the OBO agent, per table.
-Writes tests/results-data-views.json (used by RUNBOOK.md and the email)."""
+Writes tests/results-data-views.json (used by RUNBOOK-cognito-idc.md and the email)."""
 import json, os, uuid
 from invoke import invoke
 from tokens import id_token
