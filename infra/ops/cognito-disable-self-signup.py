@@ -4,7 +4,7 @@ AdminCreateUserConfig.AllowAdminCreateUserOnly changes. Prints a before/after di
 import json, sys, boto3
 
 DRY = "--dry-run" in sys.argv
-s = boto3.Session(profile_name="default")
+s = boto3.Session()
 regions = [r["RegionName"] for r in s.client("ec2", region_name="us-east-1").describe_regions()["Regions"]]
 VOLATILE = {"LastModifiedDate", "EstimatedNumberOfUsers"}
 

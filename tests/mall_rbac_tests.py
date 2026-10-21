@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from tokens import load_pw, access_token as obo_access_token, id_token  # noqa: E402
 
 R, POOL, GW = os.environ["RT_REGION"], os.environ["COGNITO_POOL_ID"], os.environ["MALL_GW_URL"]
-S = boto3.Session(profile_name="default"); idp = S.client("cognito-idp", region_name=R)
+S = boto3.Session(); idp = S.client("cognito-idp", region_name=R)
 TOOLS = ["mall___get_mall_list", "mall___get_footfall_summary", "mall___get_hourly_traffic", "mall___get_zone_comparison"]
 ROLE = {"mall___get_mall_list": "Tools.Mall.List", "mall___get_footfall_summary": "Tools.Mall.Footfall",
         "mall___get_hourly_traffic": "Tools.Mall.Hourly", "mall___get_zone_comparison": "Tools.Mall.Zone"}
@@ -106,9 +106,12 @@ def main(phase):
                 rec(f"bypass: Lambda {api.split('get_')[1]}", "none", got, "no public path around the Gateway")
             iam = S.client("iam"); fn = f"arn:aws:lambda:{R}:{os.environ['ACCOUNT_ID']}:function:rsidc-mall-tools"
             for role, exp in (("rsidc-mall-gateway-role", "allowed"), ("rsidc-webchat-role", "implicitDeny"), ("rsidc-oauth-runtime-role", "implicitDeny")):
-                d = iam.simulate_principal_policy(PolicySourceArn=f"arn:aws:iam::{os.environ['ACCOUNT_ID']}:role/{role}",
-                                                  ActionNames=["lambda:InvokeFunction"], ResourceArns=[fn])["EvaluationResults"][0]["EvalDecision"]
-                rec(f"bypass: {role} -> lambda:InvokeFunction", exp, d, "IAM policy simulation")
+                try:
+                    d, note = iam.simulate_principal_policy(PolicySourceArn=f"arn:aws:iam::{os.environ['ACCOUNT_ID']}:role/{role}",
+                                                            ActionNames=["lambda:InvokeFunction"], ResourceArns=[fn])["EvaluationResults"][0]["EvalDecision"], "IAM policy simulation"
+                except iam.exceptions.NoSuchEntityException:  # optional part not deployed (e.g. 14 web GUIs): no role, no path
+                    d, note = "implicitDeny", "role not deployed"
+                rec(f"bypass: {role} -> lambda:InvokeFunction", exp, d, note)
     if phase == "change":  # only the Cognito group Description changes; Cedar / Lambda / Gateway untouched
         a = quick_auth("ds1"); old = a["AccessToken"]
         ok, s, d = call(old, "mall___get_hourly_traffic"); rec("before: ds1 hourly", False, ok, f"roles={claims(old).get('roles')}")

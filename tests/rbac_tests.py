@@ -40,7 +40,7 @@ def tamper(token):  # re-encode the payload with extra roles; the signature no l
 
 
 def m2m_token():  # the 2LO agent's own token, fetched the same way the agent does (AgentCore Identity, M2M flow)
-    ac = boto3.Session(profile_name="default").client("bedrock-agentcore", region_name=os.environ["RT_REGION"])
+    ac = boto3.Session().client("bedrock-agentcore", region_name=os.environ["RT_REGION"])
     # The runtime's workload identity is service-linked (callers can't use it), so a standalone test identity is used.
     wat = ac.get_workload_access_token(workloadName=os.environ["RBAC_TEST_WI"])["workloadAccessToken"]
     return ac.get_resource_oauth2_token(workloadIdentityToken=wat, resourceCredentialProviderName="rsidc-2lo-cognito",

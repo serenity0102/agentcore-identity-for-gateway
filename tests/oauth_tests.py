@@ -10,7 +10,7 @@ from invoke import invoke
 from tokens import id_token, load_pw
 
 RT = os.environ["OAUTH_RT_ARN"]; RETURN_URL = "http://localhost:8765/callback"
-ident = boto3.Session(profile_name="default").client("bedrock-agentcore", region_name=os.environ["RT_REGION"])
+ident = boto3.Session().client("bedrock-agentcore", region_name=os.environ["RT_REGION"])
 results = []
 
 
@@ -70,7 +70,7 @@ def complete(session_uri, user_tok):
         return f"{type(e).__name__}: {str(e)[:120]}"
 
 
-idp = boto3.Session(profile_name="default").client("cognito-idp", region_name=os.environ["RT_REGION"])
+idp = boto3.Session().client("cognito-idp", region_name=os.environ["RT_REGION"])
 TEMP = {}
 
 

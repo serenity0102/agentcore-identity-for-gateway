@@ -8,7 +8,7 @@
 Idempotent. Existing clients/pool settings are not modified."""
 import os, subprocess, boto3
 
-S = boto3.Session(profile_name="default"); R = os.environ["RT_REGION"]; POOL = os.environ["COGNITO_POOL_ID"]
+S = boto3.Session(); R = os.environ["RT_REGION"]; POOL = os.environ["COGNITO_POOL_ID"]
 idp = S.client("cognito-idp", region_name=R)
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 GROUPS = {"mall-analyst": ("[rsidc-rbac] tools=Tools.Mall.List,Tools.Mall.Footfall,Tools.Mall.Hourly,Tools.Mall.Zone", ["wei"]),
@@ -34,14 +34,20 @@ for name, (desc, members) in GROUPS.items():
 # Amazon Quick (MCP auth spec) sends RFC 8707 `resource=<gateway MCP URL>` on /authorize and /token. Cognito only honours a
 # resource that is a REGISTERED resource server (URL identifier); otherwise /token fails with invalid_grant and Quick shows
 # "No access token was found for an OAuth authorization code connection". See history/007.
-GW_RES = os.environ["MALL_GW_URL"]
-try:
-    idp.describe_resource_server(UserPoolId=POOL, Identifier=GW_RES)
-except idp.exceptions.ResourceNotFoundException:
-    idp.create_resource_server(UserPoolId=POOL, Identifier=GW_RES, Name="rsidc-mall-gateway",
-                               Scopes=[{"ScopeName": "invoke", "ScopeDescription": "Call the mall MCP tools"}])
-    print("resource server created:", GW_RES)
-SCOPES = ["openid", "email", "profile", f"{GW_RES}/invoke"]
+# The gateway (16-mall-gateway.sh) needs QUICK_CLIENT_ID from this script, so on a fresh install MALL_GW_URL doesn't exist
+# yet: create the client without the gateway scope, then re-run this script after 16-mall-gateway.sh to add it.
+GW_RES = os.environ.get("MALL_GW_URL")
+SCOPES = ["openid", "email", "profile"]
+if GW_RES:
+    try:
+        idp.describe_resource_server(UserPoolId=POOL, Identifier=GW_RES)
+    except idp.exceptions.ResourceNotFoundException:
+        idp.create_resource_server(UserPoolId=POOL, Identifier=GW_RES, Name="rsidc-mall-gateway",
+                                   Scopes=[{"ScopeName": "invoke", "ScopeDescription": "Call the mall MCP tools"}])
+        print("resource server created:", GW_RES)
+    SCOPES.append(f"{GW_RES}/invoke")
+else:
+    print("MALL_GW_URL not set yet: skipping the gateway resource server; re-run after infra/16-mall-gateway.sh")
 
 cid = os.environ.get("QUICK_CLIENT_ID")
 if not cid:

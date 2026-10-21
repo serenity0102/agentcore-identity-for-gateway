@@ -7,7 +7,7 @@ SELECT DISTINCT TRIM(remotehost) AS source_ip, TRIM(username) AS redshift_user F
 SQL
 "$PY" - <<'PY'
 import os, time, boto3
-rs = boto3.Session(profile_name="default").client("redshift-data", region_name=os.environ["IDC_REGION"])
+rs = boto3.Session().client("redshift-data", region_name=os.environ["IDC_REGION"])
 r = rs.execute_statement(ClusterIdentifier=os.environ["REDSHIFT_CLUSTER_ID"], Database="dev", SecretArn=os.environ["REDSHIFT_ADMIN_SECRET_ARN"], Sql=open("/tmp/q.sql").read())
 while rs.describe_statement(Id=r["Id"])["Status"] not in ("FINISHED","FAILED"): time.sleep(0.5)
 for row in rs.get_statement_result(Id=r["Id"])["Records"]: print(" ", row[0]["stringValue"], row[1]["stringValue"])
@@ -27,7 +27,7 @@ echo "### X1 admin IAM user (not in IdC app ActorPolicy) tries to exchange wei's
 import os, boto3
 from tokens import id_token
 try:
-    boto3.Session(profile_name="default").client("sso-oidc", region_name=os.environ["IDC_REGION"]).create_token_with_iam(
+    boto3.Session().client("sso-oidc", region_name=os.environ["IDC_REGION"]).create_token_with_iam(
         clientId=os.environ["AGENT_IDC_APP_ARN"], grantType="urn:ietf:params:oauth:grant-type:jwt-bearer", assertion=id_token("wei"))
     print("  UNEXPECTED: exchange succeeded")
 except Exception as e: print(" ", type(e).__name__, str(e)[:200])

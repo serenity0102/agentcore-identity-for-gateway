@@ -2,7 +2,7 @@
 The Data API is IAM-authenticated and does not traverse the cluster security group; it is used ONLY for admin setup."""
 import os, sys, time, boto3
 
-rs = boto3.Session(profile_name="default").client("redshift-data", region_name=os.environ["IDC_REGION"])
+rs = boto3.Session().client("redshift-data", region_name=os.environ["IDC_REGION"])
 sql = open(os.path.join(os.path.dirname(__file__), "sql", sys.argv[1] if len(sys.argv) > 1 else "01-seed-and-grants.sql")).read()
 stmts = [s.strip() for s in "\n".join(l for l in sql.splitlines() if not l.strip().startswith("--")).split(";") if s.strip()]
 for s in stmts:

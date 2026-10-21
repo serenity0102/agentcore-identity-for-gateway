@@ -3,7 +3,7 @@ as Markdown (RUNBOOK-cognito-idc.md, Part 4 · OBO, Step 5) and HTML (email) fra
 import html, json, os, time, boto3
 
 D = os.path.dirname(os.path.abspath(__file__)); DOCS = os.path.join(D, "..", "data")
-rs = boto3.Session(profile_name="default").client("redshift-data", region_name=os.environ["IDC_REGION"])
+rs = boto3.Session().client("redshift-data", region_name=os.environ["IDC_REGION"])
 
 def admin(sql):
     r = rs.execute_statement(ClusterIdentifier=os.environ["REDSHIFT_CLUSTER_ID"], Database="dev", SecretArn=os.environ["REDSHIFT_ADMIN_SECRET_ARN"], Sql=sql)

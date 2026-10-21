@@ -9,7 +9,7 @@ def load_pw(user):
     raise KeyError(user)
 
 def tokens(user):
-    c = boto3.Session(profile_name="default").client("cognito-idp", region_name=os.environ["RT_REGION"])
+    c = boto3.Session().client("cognito-idp", region_name=os.environ["RT_REGION"])
     return c.initiate_auth(ClientId=os.environ["COGNITO_CLIENT_ID"], AuthFlow="USER_PASSWORD_AUTH",
                            AuthParameters={"USERNAME": user, "PASSWORD": load_pw(user)})["AuthenticationResult"]
 
@@ -17,7 +17,7 @@ def access_token(user):
     return tokens(user)["AccessToken"]
 
 def id_token(user):
-    c = boto3.Session(profile_name="default").client("cognito-idp", region_name=os.environ["RT_REGION"])
+    c = boto3.Session().client("cognito-idp", region_name=os.environ["RT_REGION"])
     r = c.initiate_auth(ClientId=os.environ["COGNITO_CLIENT_ID"], AuthFlow="USER_PASSWORD_AUTH",
                         AuthParameters={"USERNAME": user, "PASSWORD": load_pw(user)})
     return r["AuthenticationResult"]["IdToken"]
