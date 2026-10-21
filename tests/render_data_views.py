@@ -40,7 +40,7 @@ md = [f"## Data in Redshift and who can see it (snapshot {stamp})\n",
 for t in TABLES:
     md.append(f"**dev.{t}**\n\n" + md_table(*full[t]))
 md.append("\n### What each persona gets back (same SQL, run through the OBO agent as that user)\n")
-md.append("Regenerate with: `cd tests && ../infra/run.sh ../agent_obo/.venv/bin/python data_views.py && ../infra/run.sh ../agent_obo/.venv/bin/python render_data_views.py`\n")
+md.append("Regenerate with: `cd tests && ../infra/run.sh ../.venv/bin/python data_views.py && ../infra/run.sh ../.venv/bin/python render_data_views.py`\n")
 qs = ["marketing.campaigns", "risk.credit_limits", "sales.orders (all columns)"]
 md.append("| Persona (IdC group) | Redshift session user | " + " | ".join(f"`SELECT * FROM {q.split(' ')[0]}`" for q in qs) + " |\n|" + "---|" * (2 + len(qs)) + "\n"
           + "".join(f"| {u} ({GROUP[u]}) | `{views[u]['redshift_user']}` | " + " | ".join(cell(u, q)[1] for q in qs) + " |\n" for u in views))

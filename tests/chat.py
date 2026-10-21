@@ -1,5 +1,5 @@
 """Talk to the OBO data agent as an end user.
-  infra/run.sh agent_obo/.venv/bin/python tests/chat.py <user> ["question"]     (no question = interactive)
+  infra/run.sh .venv/bin/python tests/chat.py <user> ["question"]     (no question = interactive)
 Signs in to Cognito with the user's password (tests/.users.env), then invokes the AgentCore Runtime with the
 ID token as a bearer token. One runtime session per chat, so the IdC token exchange happens once."""
 import os, sys, uuid

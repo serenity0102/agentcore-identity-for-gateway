@@ -3,8 +3,8 @@ Agent Registry runs in only five Regions, not ap-southeast-1, so the registry li
 records are created manually, as metadata pointing at the Singapore endpoints. URL sync can't be used: every
 endpoint requires a Cognito JWT. Gateway tool definitions are read from the deployed targets (read-only).
 Idempotent: an existing record (same name + version) is skipped. Records are submitted, then approved (manual approval).
-Run: infra/run.sh agent_obo/.venv/bin/python infra/17-agent-registry.py           (Tokyo)
-     REGISTRY_REGION=us-east-1 infra/run.sh agent_obo/.venv/bin/python infra/17-agent-registry.py   (for Amazon Quick: same Region as Quick)"""
+Run: infra/run.sh .venv/bin/python infra/17-agent-registry.py           (Tokyo)
+     REGISTRY_REGION=us-east-1 infra/run.sh .venv/bin/python infra/17-agent-registry.py   (for Amazon Quick: same Region as Quick)"""
 import json, os, time, boto3
 
 REG_REGION, SRC = os.environ.get("REGISTRY_REGION", "ap-northeast-1"), os.environ["RT_REGION"]  # us-east-1 = the Quick account's home Region

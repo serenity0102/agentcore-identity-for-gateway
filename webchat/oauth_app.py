@@ -4,7 +4,7 @@
   3LO    : agent asks AgentCore Identity for the USER's token; first time -> consent URL -> LOGIN 2 (consent at Cognito)
            -> AgentCore callback -> back to /3lo/callback?session_id=... -> CompleteResourceTokenAuth(session, user JWT)
            -> token stored in the Token Vault for (agent, user) -> agent calls Cognito userInfo with it.
-Run:  infra/run.sh agent_obo/.venv/bin/python webchat/oauth_app.py   then open http://localhost:8081"""
+Run:  infra/run.sh .venv/bin/python webchat/oauth_app.py   then open http://localhost:8081"""
 import base64, hashlib, json, os, secrets, sys, urllib.parse, urllib.request, uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 

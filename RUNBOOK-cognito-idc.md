@@ -50,7 +50,7 @@ This runbook covers the **Cognito + IAM Identity Center** implementation of the 
 
 - AWS CLI v2, `uv`, Python 3.12 (via uv), `nc`, `zip`; AWS profile `default` with admin rights in 123456789012.
 - Existing IdC instance `ssoins-715869a9a6444dc5` (ap-east-1), with users wei/zhang/chen/ds1 in the groups risk-team, marketing-team, platform-team and data-scientists.
-- Agent venv: `cd agent_obo && uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -r requirements.txt requests`
+- Tooling venv in the project root: `uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -r requirements.txt` (boto3, requests; the agents' runtime dependencies are packaged by `08` / `12`)
 - **Always run steps through `infra/run.sh`.** It loads `infra/00-config.sh` and `infra/state.env`, where resource IDs are saved. Every step is idempotent and safe to re-run.
 
 ---
@@ -121,7 +121,7 @@ URL at capture (2026-10-05 15:53:22 HKT): <https://ap-southeast-1.console.aws.am
 <a name="shared-ops"></a>
 <details id="shared-ops"><summary><b>Ops · admin-only user creation on ALL Cognito pools</b> · result: 41 pools scanned, 6 fixed</summary>
 
-`agent_obo/.venv/bin/python infra/ops/cognito-disable-self-signup.py [--dry-run]`
+`.venv/bin/python infra/ops/cognito-disable-self-signup.py [--dry-run]`
 
 The script scans every region and sets `AllowAdminCreateUserOnly=true` wherever self sign-up is still allowed. `UpdateUserPool` resets any omitted setting to its default, so the script copies each pool's full config back and prints a before/after diff.
 
@@ -273,7 +273,7 @@ Copied from the user's Quick connector page (2026-10-20):
 <details id="quick-aws"><summary><b>Step 3 · Cognito and Gateway setup (AWS side)</b> · result: resource server, scopes, callbacks, allowedClients</summary>
 
 ```bash
-infra/run.sh agent_obo/.venv/bin/python infra/16-mall-cognito.py   # Cognito groups, app client rsidc-quick-mcp, resource server, scopes, Quick callbacks
+infra/run.sh .venv/bin/python infra/16-mall-cognito.py   # Cognito groups, app client rsidc-quick-mcp, resource server, scopes, Quick callbacks
 infra/run.sh bash infra/16-mall-gateway.sh                     # gateway rsidc-mall-gateway: allowedClients = [Quick client, OBO client]
 infra/run.sh bash infra/16-mall-policy.sh ENFORCE              # 4 fixed Cedar rules on roles
 ```
@@ -414,7 +414,7 @@ ManagedLoginVersion 2, ACTIVE
 <a name="3lo-step-10"></a>
 <details id="3lo-step-10"><summary><b>Step 10 · Credential provider rsidc-3lo-cognito</b> · result: callbackUrl set on the 3LO client</summary>
 
-`infra/run.sh agent_obo/.venv/bin/python infra/10-credential-providers.py`
+`infra/run.sh .venv/bin/python infra/10-credential-providers.py`
 
 Creates two `CustomOauth2` providers backed by Cognito discovery. Client secrets go straight into the AgentCore Identity vault and are never printed. The script then sets the 3LO client's callback to the provider's AgentCore callback URL, copying the client's full configuration because `UpdateUserPoolClient` resets omitted fields.
 
@@ -440,7 +440,7 @@ The runtime `rsidc_oauth_agent` is shared with 2LO: full details in [2LO Step 12
 <a name="3lo-step-13"></a>
 <details id="3lo-step-13"><summary><b>Step 13 · 3LO test cases</b> · result: PASS (3LO cases of 18/18) + 1 OBSERVED</summary>
 
-`cd tests && ../infra/run.sh ../agent_obo/.venv/bin/python oauth_tests.py` (output in `tests/results-oauth.txt`)
+`cd tests && ../infra/run.sh ../.venv/bin/python oauth_tests.py` (output in `tests/results-oauth.txt`)
 
 How the 3LO consent is automated: `agent-browser` (headless Chrome) plays the user and signs in on Cognito managed login. A local listener on `:8765` receives the return-URL redirect, and the test then calls `CompleteResourceTokenAuth` with the user's JWT, the app's session-binding step. Vault-state scenarios use **admin-created throwaway Cognito users**, deleted at the end, so every run starts with empty vault slots.
 
@@ -467,9 +467,9 @@ PASS 3LO control: fresh user C, no prompt=login -> token stored
 
 **Web GUI for 2LO / 3LO (port 8081)**
 1. One-time setup:
-   - `infra/run.sh agent_obo/.venv/bin/python infra/13-web-login-client.py` adds the `http://localhost:8081/callback` login callback.
+   - `infra/run.sh .venv/bin/python infra/13-web-login-client.py` adds the `http://localhost:8081/callback` login callback.
    - The OAuth workload identity return URLs must include `http://localhost:8081/3lo/callback`; `infra/12-deploy-oauth-runtime.sh` sets both.
-2. Start it with `infra/run.sh agent_obo/.venv/bin/python webchat/oauth_app.py`, then open http://localhost:8081 and sign in (login 1).
+2. Start it with `infra/run.sh .venv/bin/python webchat/oauth_app.py`, then open http://localhost:8081 and sign in (login 1).
 3. **2LO**: *Run sales report via Gateway*. **3LO**: *Connect my profile*. The first time this goes through login 2 (consent), then session binding, then the token is read from the vault. *Check vault only* reads the vault without redirecting.
 
 **Result (2026-10-05, headless Chrome, zhang):**
@@ -575,7 +575,7 @@ URL at capture (2026-10-05 15:54:28 HKT): <https://ap-southeast-1.console.aws.am
 <a name="2lo-step-10"></a>
 <details id="2lo-step-10"><summary><b>Step 10 · Credential provider rsidc-2lo-cognito</b> · result: rsidc-2lo-cognito in the token vault</summary>
 
-`infra/run.sh agent_obo/.venv/bin/python infra/10-credential-providers.py`
+`infra/run.sh .venv/bin/python infra/10-credential-providers.py`
 
 Creates two `CustomOauth2` providers backed by Cognito discovery. Client secrets go straight into the AgentCore Identity vault and are never printed. The script then sets the 3LO client's callback to the provider's AgentCore callback URL, copying the client's full configuration because `UpdateUserPoolClient` resets omitted fields.
 
@@ -682,7 +682,7 @@ URL at capture (2026-10-05 16:01:27 HKT): <https://us-east-1.console.aws.amazon.
 <a name="2lo-step-13"></a>
 <details id="2lo-step-13"><summary><b>Step 13 · 2LO test cases</b> · result: PASS (2LO cases of 18/18)</summary>
 
-`cd tests && ../infra/run.sh ../agent_obo/.venv/bin/python oauth_tests.py` (output in `tests/results-oauth.txt`)
+`cd tests && ../infra/run.sh ../.venv/bin/python oauth_tests.py` (output in `tests/results-oauth.txt`)
 
 
 **Result: 18/18 asserted cases matched, plus 1 documented observation**
@@ -699,8 +699,8 @@ PASS 2LO Gateway with no token -> 401; with a USER id token -> 403 (allowedClien
 
 **Web GUI for 2LO / 3LO (port 8081)**
 1. One-time setup:
-   - `infra/run.sh agent_obo/.venv/bin/python infra/13-web-login-client.py` adds the `http://localhost:8081/callback` login callback.
-2. Start it with `infra/run.sh agent_obo/.venv/bin/python webchat/oauth_app.py`, then open http://localhost:8081 and sign in (login 1).
+   - `infra/run.sh .venv/bin/python infra/13-web-login-client.py` adds the `http://localhost:8081/callback` login callback.
+2. Start it with `infra/run.sh .venv/bin/python webchat/oauth_app.py`, then open http://localhost:8081 and sign in (login 1).
 3. **2LO**: *Run sales report via Gateway*. **3LO**: *Connect my profile*. The first time this goes through login 2 (consent), then session binding, then the token is read from the vault. *Check vault only* reads the vault without redirecting.
 
 **Result (2026-10-05, headless Chrome, zhang):**
@@ -928,7 +928,7 @@ URL at capture (2026-10-05 15:53:55 HKT): <https://ap-east-1.console.aws.amazon.
 <a name="obo-step-5"></a>
 <details id="obo-step-5"><summary><b>Step 5 · Seed data + grants to IdC group roles</b> · result: 29 statements FINISHED</summary>
 
-`infra/run.sh agent_obo/.venv/bin/python infra/05-seed-redshift.py`
+`infra/run.sh .venv/bin/python infra/05-seed-redshift.py`
 
 This runs `infra/sql/01-seed-and-grants.sql` as the admin via the Redshift Data API. The Data API is IAM-authenticated and is used only for admin setup. Expected permission model:
 
@@ -972,7 +972,7 @@ Cluster `rsidc-cluster` (ap-east-1) → database **`dev`** → 3 user tables, 9 
 
 ### What each persona gets back (same SQL, run through the OBO agent as that user)
 
-Regenerate with: `cd tests && ../infra/run.sh ../agent_obo/.venv/bin/python data_views.py && ../infra/run.sh ../agent_obo/.venv/bin/python render_data_views.py`
+Regenerate with: `cd tests && ../infra/run.sh ../.venv/bin/python data_views.py && ../infra/run.sh ../.venv/bin/python render_data_views.py`
 
 | Persona (IdC group) | Redshift session user | `SELECT * FROM marketing.campaigns` | `SELECT * FROM risk.credit_limits` | `SELECT * FROM sales.orders` |
 |---|---|---|---|---|
@@ -1077,7 +1077,7 @@ URL at capture (2026-10-05 15:54:12 HKT): <https://ap-southeast-1.console.aws.am
 <a name="obo-step-9"></a>
 <details id="obo-step-9"><summary><b>Step 9 · Validate the access-control matrix through the agent</b> · result: 16/16 PASS</summary>
 
-`cd tests && ../infra/run.sh ../agent_obo/.venv/bin/python validate_matrix.py`
+`cd tests && ../infra/run.sh ../.venv/bin/python validate_matrix.py`
 
 A DENY only counts as PASS when Redshift itself refuses the statement (`42501 permission denied`). A connection or authentication failure counts as FAIL.
 
@@ -1107,7 +1107,7 @@ PASS | ds1   | read sales (no grants)        | DENY  | 42501 permission denied f
 <a name="obo-step-10"></a>
 <details id="obo-step-10"><summary><b>Step 10 · Negative and security tests</b> · result: N1–N4b, NET1–NET5, X1–X2 as expected</summary>
 
-`cd tests && ../infra/run.sh ../agent_obo/.venv/bin/python negative_tests.py` (output in `tests/results-negative.txt`)
+`cd tests && ../infra/run.sh ../.venv/bin/python negative_tests.py` (output in `tests/results-negative.txt`)
 
 | # | Test | Result |
 |---|---|---|
@@ -1134,8 +1134,8 @@ PASS | ds1   | read sales (no grants)        | DENY  | 42501 permission denied f
 <a name="obo-gui"></a>
 <details id="obo-gui"><summary><b>Web GUI · OBO chat</b> · result: wei 5 rows · zhang 2 APAC rows, no email</summary>
 
-1. One-time: `infra/run.sh agent_obo/.venv/bin/python infra/13-web-login-client.py`. This adds Cognito managed login (code + PKCE, callback `http://localhost:8080/callback`) to the **existing** OBO client. Only the OAuth fields change; `USER_PASSWORD_AUTH`, the audience and the token lifetimes are untouched.
-2. Start the GUI with `infra/run.sh agent_obo/.venv/bin/python webchat/obo_app.py`, then open http://localhost:8080.
+1. One-time: `infra/run.sh .venv/bin/python infra/13-web-login-client.py`. This adds Cognito managed login (code + PKCE, callback `http://localhost:8080/callback`) to the **existing** OBO client. Only the OAuth fields change; `USER_PASSWORD_AUTH`, the audience and the token lifetimes are untouched.
+2. Start the GUI with `infra/run.sh .venv/bin/python webchat/obo_app.py`, then open http://localhost:8080.
 3. Choose **Sign in** and use wei / zhang / chen / ds1 with the password from `tests/.users.env`. Then chat in natural language, or type `SQL: …` to run an exact statement as that user. **Sign out** switches users.
 
 **Result (2026-10-05, headless Chrome):**
@@ -1278,7 +1278,7 @@ Actual result:
 <details id="rbac-step-15-3"><summary><b>Step 15.3 · Cognito Pre Token Generation V2 trigger</b> · result: diff = trigger only; fail-closed</summary>
 
 ```bash
-infra/run.sh agent_obo/.venv/bin/python infra/15-rbac-pretoken.py          # teardown: … 15-rbac-pretoken.py --detach
+infra/run.sh .venv/bin/python infra/15-rbac-pretoken.py          # teardown: … 15-rbac-pretoken.py --detach
 ```
 Actual result (the pre-flight invokes the Lambda for every pool user **before** attaching it, because the trigger fails closed):
 ```
@@ -1326,10 +1326,10 @@ Actual result:
 
 ```bash
 cd tests
-../infra/run.sh ../agent_obo/.venv/bin/python rbac_tests.py baseline   # before the policy engine is attached
-../infra/run.sh ../agent_obo/.venv/bin/python rbac_tests.py log_only
-../infra/run.sh ../agent_obo/.venv/bin/python rbac_tests.py enforce
-../infra/run.sh ../agent_obo/.venv/bin/python rbac_change_tests.py     # tests 7–8, change IdC only
+../infra/run.sh ../.venv/bin/python rbac_tests.py baseline   # before the policy engine is attached
+../infra/run.sh ../.venv/bin/python rbac_tests.py log_only
+../infra/run.sh ../.venv/bin/python rbac_tests.py enforce
+../infra/run.sh ../.venv/bin/python rbac_change_tests.py     # tests 7–8, change IdC only
 ```
 
 | # | Case | Expected | Actual | Result |
@@ -1374,7 +1374,7 @@ Saved evidence is in `tests/results/` (see its README): `rbac_baseline.json`, `r
 
 Run in this order:
 ```bash
-infra/run.sh agent_obo/.venv/bin/python infra/15-rbac-pretoken.py --detach           # FIRST: remove the trigger from the pool
+infra/run.sh .venv/bin/python infra/15-rbac-pretoken.py --detach           # FIRST: remove the trigger from the pool
 source infra/state.env; R=ap-southeast-1
 aws logs delete-delivery --region $R --id $(aws logs describe-deliveries --region $R --query "deliveries[?deliverySourceName=='rsidc-rbac-gw-logs'].id" --output text)
 aws logs delete-delivery-source --region $R --name rsidc-rbac-gw-logs; aws logs delete-delivery-destination --region $R --name rsidc-rbac-gw-cwl
@@ -1415,12 +1415,12 @@ Cognito sign-in → Pre Token Gen V2 (alias live) → Cognito group Description 
 
 | Step | Script | Purpose |
 |---|---|---|
-| 16.1 | `infra/run.sh agent_obo/.venv/bin/python infra/16-mall-cognito.py` | Groups `mall-analyst` (wei) and `mall-viewer` (ds1) with mapping Descriptions; Quick app client `rsidc-quick-mcp`. The secret goes only to `tests/.quick-client.env`. |
-| 16.2 | `infra/run.sh agent_obo/.venv/bin/python infra/15-rbac-pretoken.py` | Trigger reads Cognito groups plus IdC. Cognito now calls alias **`live`**, which moves only after the pre-flight passes (history/005). |
+| 16.1 | `infra/run.sh .venv/bin/python infra/16-mall-cognito.py` | Groups `mall-analyst` (wei) and `mall-viewer` (ds1) with mapping Descriptions; Quick app client `rsidc-quick-mcp`. The secret goes only to `tests/.quick-client.env`. |
+| 16.2 | `infra/run.sh .venv/bin/python infra/15-rbac-pretoken.py` | Trigger reads Cognito groups plus IdC. Cognito now calls alias **`live`**, which moves only after the pre-flight passes (history/005). |
 | 16.3 | `infra/run.sh bash infra/16-mall-gateway.sh` | Lambda `rsidc-mall-tools`, roles, Gateway `rsidc-mall-gateway`, target `mall` |
 | 16.4 | `infra/run.sh bash infra/16-mall-logs.sh` | Policy decision logs → `/aws/vendedlogs/bedrock-agentcore/gateway/rsidc-mall-gateway` (7 days) |
 | 16.5 | `infra/run.sh bash infra/16-mall-policy.sh LOG_ONLY`, then `ENFORCE` | Policy Engine `rsidc_mall_pe`, 4 Cedar permits, attach |
-| 16.6 | `infra/run.sh agent_obo/.venv/bin/python tests/mall_rbac_tests.py log_only\|enforce\|change` | Test matrix (results in `tests/results/mall_*.json`) |
+| 16.6 | `infra/run.sh .venv/bin/python tests/mall_rbac_tests.py log_only\|enforce\|change` | Test matrix (results in `tests/results/mall_*.json`) |
 | 16.7 | `data/quick-mcp-connector.md` | **Manual:** connect your Quick to the Gateway as wei, then as ds1 |
 
 **Actual results (2026-10-06):**
@@ -1453,7 +1453,7 @@ Cognito sign-in → Pre Token Gen V2 (alias live) → Cognito group Description 
 
 **How you can verify:**
 ```bash
-infra/run.sh agent_obo/.venv/bin/python tests/mall_rbac_tests.py enforce          # expect 25/25 passed
+infra/run.sh .venv/bin/python tests/mall_rbac_tests.py enforce          # expect 25/25 passed
 aws bedrock-agentcore-control get-gateway --region ap-southeast-1 --gateway-identifier rsidc-mall-gateway-skatnrktwr --query policyEngineConfiguration   # mode ENFORCE
 aws cognito-idp get-group --region ap-southeast-1 --user-pool-id ap-southeast-1_kSVpAo5yl --group-name mall-viewer --query Group.Description
 aws lambda get-alias --region ap-southeast-1 --function-name rsidc-pretoken-roles --name live --query FunctionVersion
@@ -1551,7 +1551,7 @@ The registry also lists the Entra ID resources; see [RUNBOOK-entra-id.md](RUNBOO
 - **No auto-detect:** auto-detection of AgentCore runtimes and gateways wasn't used, because the resources are in another Region.
 - **No URL sync:** every endpoint requires a Cognito JWT, so records are created manually. The gateway tool lists are read from the deployed targets.
 ```bash
-infra/run.sh agent_obo/.venv/bin/python infra/17-agent-registry.py
+infra/run.sh .venv/bin/python infra/17-agent-registry.py
 ```
 It creates the registry `rsidc-registry` (IAM auth, **manual approval**, no auto-approve). Each record is created, submitted for approval, then approved. The script is idempotent: existing records are skipped.
 
@@ -1598,7 +1598,7 @@ aws agent-registry-control delete-registry --registry-id wCf04AFofS2kuI0i --regi
 
 Quick only links a registry in the **same AWS account and Region** as the Quick account, it needs `AWS_IAM` auth, and it surfaces only `MCP` records that have `remotes[].url`. The Quick account in 123456789012 (`awsjackywu`) has its home Region in **us-east-1**, so the same records were also created there:
 ```bash
-REGISTRY_REGION=us-east-1 infra/run.sh agent_obo/.venv/bin/python infra/17-agent-registry.py
+REGISTRY_REGION=us-east-1 infra/run.sh .venv/bin/python infra/17-agent-registry.py
 ```
 **Actual result (2026-10-08):** registry `OEmHlFAdLFTUVzdK` (us-east-1). All records are APPROVED:
 

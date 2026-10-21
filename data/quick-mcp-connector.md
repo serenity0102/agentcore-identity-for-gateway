@@ -22,7 +22,7 @@ Quick by automation. This guide is for you to run by hand.
 
 **Callback list.** The client allows the Quick callbacks for us-east-1, us-west-2, ap-southeast-2 and eu-west-1. If the
 Redirect URL that Quick shows is different, add it and re-run:
-`QUICK_REDIRECTS="https://<region>.quicksight.aws.amazon.com/sn/oauthcallback" infra/run.sh agent_obo/.venv/bin/python infra/16-mall-cognito.py`
+`QUICK_REDIRECTS="https://<region>.quicksight.aws.amazon.com/sn/oauthcallback" infra/run.sh .venv/bin/python infra/16-mall-cognito.py`
 
 **Login method.** Cognito doesn't support Dynamic Client Registration, so Quick falls back to the manual fields above.
 Test passwords are in `tests/.users.env` (`PW_wei`, `PW_ds1`, `PW_chen`).

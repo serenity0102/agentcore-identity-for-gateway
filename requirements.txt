@@ -1,0 +1,3 @@
+# Operator tooling (infra/*.py, tests/, webchat/ run locally). Agent runtime deps are in agent_*/requirements.txt.
+boto3
+requests

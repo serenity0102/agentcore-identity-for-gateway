@@ -1,3 +1,9 @@
+## [2026-10-21] Tooling venv moved to the project root
+- **改了什么**：新增根目录 `requirements.txt`（boto3、requests，即 infra/tests/webchat 实际用到的第三方包）和根目录 `.venv`；27 个文件里的 `agent_obo/.venv` 改为 `.venv`（脚本里 `$ROOT/.venv`，tests 里 `../.venv`）；infra/README 第 0 步、runbook 前置条件、README 更新；删除旧的 `agent_obo/.venv`
+- **为什么改**：agent_obo/ 只属于 OBO agent；运维工具的环境不应放在里面。Agent 的运行依赖仍由 08/12 单独打包
+- **涉及文件/资源**：requirements.txt, infra/*.sh, infra/*.py, tests/, webchat/, README.md, infra/README.md, RUNBOOK-*.md
+- **结果**：bash -n 通过；用根目录 venv 跑 `tests/validate_matrix.py` 16/16；已推送 GitHub
+
 ## [2026-10-21] Remove specific cost figures
 - **改了什么**：README.md、RUNBOOK-cognito-idc.md（总览表、Cost 表、各 part 的 Cost 行）和 worklog.md 中的具体金额全部删除；Cost 表改为「每个资源怎么计费」，并链接 AWS Pricing Calculator 和 Redshift / VPC 定价页
 - **为什么改**：金额可能算错，也会随 Region 和价格变化

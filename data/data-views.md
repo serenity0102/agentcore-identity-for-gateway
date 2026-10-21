@@ -29,7 +29,7 @@ Cluster `rsidc-cluster` (ap-east-1) → database **`dev`** → 3 user tables, 9 
 
 ### What each persona gets back (same SQL, run through the OBO agent as that user)
 
-Regenerate with: `cd tests && ../infra/run.sh ../agent_obo/.venv/bin/python data_views.py && ../infra/run.sh ../agent_obo/.venv/bin/python render_data_views.py`
+Regenerate with: `cd tests && ../infra/run.sh ../.venv/bin/python data_views.py && ../infra/run.sh ../.venv/bin/python render_data_views.py`
 
 | Persona (IdC group) | Redshift session user | `SELECT * FROM marketing.campaigns` | `SELECT * FROM risk.credit_limits` | `SELECT * FROM sales.orders` |
 |---|---|---|---|---|

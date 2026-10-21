@@ -16,10 +16,10 @@ Provisioning for the PoC. Run every script through `./run.sh` (it loads `00-conf
 ## Install the test environment
 Run from the project root. Every step is idempotent: if one fails, fix the cause and re-run it. Resource IDs are saved to `infra/state.env`, and test-user passwords to `tests/.users.env` (both gitignored). Expected output and console checks for each step are in [`../RUNBOOK-cognito-idc.md`](../RUNBOOK-cognito-idc.md).
 
-**0. Python venv** (used by the Python steps and the tests):
+**0. Python venv** in the project root (used by the Python steps, the tests and the local GUIs; the agents' own dependencies are packaged separately by `08` / `12`):
 ```bash
-cd agent_obo && uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -r requirements.txt requests && cd ..
-PY=agent_obo/.venv/bin/python
+uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -r requirements.txt
+PY=.venv/bin/python
 ```
 
 **1. Shared foundation + OBO** (Cognito JWT → IdC → Redshift as the user):

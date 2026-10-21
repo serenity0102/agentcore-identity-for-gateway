@@ -9,6 +9,7 @@ Validates that an **AgentCore Runtime** data agent querying/updating **Amazon Re
 - `agent_oauth/` + `infra/lambda/`: the separate 2LO/3LO agent and the Gateway reporting Lambda (Part 2).
 - `webchat/`: browser GUIs (OBO and 2LO/3LO); run locally or deploy behind API Gateway (HTTP API) → Lambda (`infra/14-deploy-webchat.sh`).
 - `tests/`: the access matrix and the negative, network and exchange-boundary tests.
+- `requirements.txt`: Python tooling for the operator machine (the root `.venv`); see `infra/README.md`.
 
 ## Install
 Prerequisites (an existing IAM Identity Center instance, an AWS CLI profile, tools) and the step-by-step install of the whole test environment are in **[`infra/README.md`](infra/README.md)**. Read the cost note below first.
