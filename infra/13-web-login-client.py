@@ -2,7 +2,7 @@
 so the ID token keeps the same audience the runtime authorizer and IdC TTI already trust. Nothing else changes.
 UpdateUserPoolClient resets omitted fields, so the full current config is copied back; before/after diff printed."""
 import os, boto3
-idp = boto3.Session(profile_name="default").client("cognito-idp", region_name=os.environ["RT_REGION"])
+idp = boto3.Session().client("cognito-idp", region_name=os.environ["RT_REGION"])
 pool, cid = os.environ["COGNITO_POOL_ID"], os.environ["COGNITO_CLIENT_ID"]
 CALLBACKS = ["http://localhost:8080/callback", "http://localhost:8081/callback"]   # 8080 = OBO GUI, 8081 = 2LO/3LO GUI
 LOGOUTS = ["http://localhost:8080/", "http://localhost:8081/"]

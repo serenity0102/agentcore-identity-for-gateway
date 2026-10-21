@@ -8,7 +8,7 @@ Run: infra/run.sh .venv/bin/python infra/17-agent-registry.py           (Tokyo)
 import json, os, time, boto3
 
 REG_REGION, SRC = os.environ.get("REGISTRY_REGION", "ap-northeast-1"), os.environ["RT_REGION"]  # us-east-1 = the Quick account's home Region
-s = boto3.Session(profile_name="default")
+s = boto3.Session()
 reg = s.client("agent-registry-control", region_name=REG_REGION)
 ctl = s.client("bedrock-agentcore-control", region_name=SRC)
 NAME, VERSION, OWNER = "rsidc-registry", "1.0.0", "Jacky Wu (rsidc PoC)"

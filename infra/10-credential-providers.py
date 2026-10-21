@@ -6,7 +6,7 @@ Then sets the 3LO Cognito client's callback URL to the provider's AgentCore call
 because UpdateUserPoolClient resets omitted fields)."""
 import os, subprocess, boto3
 
-S = boto3.Session(profile_name="default"); R = os.environ["RT_REGION"]
+S = boto3.Session(); R = os.environ["RT_REGION"]
 idp = S.client("cognito-idp", region_name=R); ac = S.client("bedrock-agentcore-control", region_name=R)
 pool = os.environ["COGNITO_POOL_ID"]
 

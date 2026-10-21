@@ -6,7 +6,7 @@ UpdateUserPool resets omitted settings, so the full current config is copied bac
 and a before/after diff is printed. `--detach` removes only the trigger (teardown)."""
 import io, json, os, sys, time, zipfile, boto3
 
-S = boto3.Session(profile_name="default"); R, ACCT = os.environ["RT_REGION"], os.environ["ACCOUNT_ID"]
+S = boto3.Session(); R, ACCT = os.environ["RT_REGION"], os.environ["ACCOUNT_ID"]
 POOL, PROJECT = os.environ["COGNITO_POOL_ID"], os.environ["PROJECT"]
 FN, ROLE = f"{PROJECT}-pretoken-roles", f"{PROJECT}-pretoken-roles-role"
 ROOT = os.path.join(os.path.dirname(__file__), "..")
@@ -27,8 +27,11 @@ def deploy_lambda():
         iam.create_role(RoleName=ROLE, Tags=[{"Key": "Project", "Value": PROJECT}], AssumeRolePolicyDocument=json.dumps(
             {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Principal": {"Service": "lambda.amazonaws.com"}, "Action": "sts:AssumeRole"}]}))
         time.sleep(10)
+    # The identity store belongs to the IdC instance owner (the management account for an org instance run from a delegated admin).
+    IDC_ACCT = next(i["OwnerAccountId"] for i in S.client("sso-admin", region_name=os.environ["IDC_REGION"]).list_instances()["Instances"]
+                    if i["InstanceArn"] == os.environ["IDC_INSTANCE_ARN"])
     doc = open(os.path.join(ROOT, "infra/policies/rbac-pretoken-permissions.json")).read() \
-        .replace("__ACCOUNT__", ACCT).replace("__REGION__", R).replace("__STORE__", os.environ["IDENTITY_STORE_ID"]).replace("__POOL__", POOL)
+        .replace("__IDC_ACCOUNT__", IDC_ACCT).replace("__ACCOUNT__", ACCT).replace("__REGION__", R).replace("__STORE__", os.environ["IDENTITY_STORE_ID"]).replace("__POOL__", POOL)
     iam.put_role_policy(RoleName=ROLE, PolicyName="read-idc-groups", PolicyDocument=doc)
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as z:

@@ -29,6 +29,7 @@ GR=${PROJECT}-gateway-role
 aws iam get-role --role-name $GR >/dev/null 2>&1 || { aws iam create-role --role-name $GR --tags Key=Project,Value=$PROJECT \
   --assume-role-policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"bedrock-agentcore.amazonaws.com\"},\"Action\":\"sts:AssumeRole\",\"Condition\":{\"StringEquals\":{\"aws:SourceAccount\":\"${ACCOUNT_ID}\"}}}]}" >/dev/null; sleep 10; }
 aws iam put-role-policy --role-name $GR --policy-name invoke-reporting --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"lambda:InvokeFunction\",\"Resource\":\"$REPORTING_LAMBDA_ARN\"}]}"
+sleep 10   # IAM eventual consistency: CreateGatewayTarget validates this policy immediately
 
 if [ -z "${GW_ID:-}" ]; then
   save GW_ID $(aws bedrock-agentcore-control create-gateway --region $R --name ${PROJECT}-2lo-gateway --role-arn arn:aws:iam::${ACCOUNT_ID}:role/$GR \
