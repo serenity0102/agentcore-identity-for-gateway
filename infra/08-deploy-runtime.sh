@@ -10,8 +10,8 @@ aws s3api put-public-access-block --bucket $BUCKET --public-access-block-configu
 
 # Package: linux/arm64 wheels + agent source
 B="$ROOT/build"; rm -rf "$B"; mkdir -p "$B/pkg"
-uv pip install -q --python-platform aarch64-manylinux2014 --python-version 3.12 --only-binary=:all: --target "$B/pkg" -r "$ROOT/agent/requirements.txt"
-cp "$ROOT/agent/main.py" "$ROOT/agent/redshift_tools.py" "$B/pkg/"
+uv pip install -q --python-platform aarch64-manylinux2014 --python-version 3.12 --only-binary=:all: --target "$B/pkg" -r "$ROOT/agent_obo/requirements.txt"
+cp "$ROOT/agent_obo/main.py" "$ROOT/agent_obo/redshift_tools.py" "$B/pkg/"
 (cd "$B/pkg" && zip -qr "$B/agent.zip" .)
 KEY=agent/$(date +%Y%m%d%H%M%S)/agent.zip
 aws s3 cp --only-show-errors "$B/agent.zip" s3://$BUCKET/$KEY

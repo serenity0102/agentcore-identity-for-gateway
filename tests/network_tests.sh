@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Network + exchange-boundary checks. Run via: infra/run.sh tests/network_tests.sh
-set -uo pipefail; D="$(cd "$(dirname "$0")" && pwd)"; PY="$D/../agent/.venv/bin/python"
+set -uo pipefail; D="$(cd "$(dirname "$0")" && pwd)"; PY="$D/../agent_obo/.venv/bin/python"
 echo "### NET1 source IPs Redshift saw for IdC users (stl_connection_log)"
 cat > /tmp/q.sql <<'SQL'
 SELECT DISTINCT TRIM(remotehost) AS source_ip, TRIM(username) AS redshift_user FROM stl_connection_log WHERE username LIKE 'AWSIDC:%' AND event='authenticated' ORDER BY 1,2;

@@ -53,11 +53,11 @@ rm -rf "$B"
 aws lambda update-function-configuration --region $R --function-name ${PROJECT}-webchat-entra \
   --environment "Variables={WEBCHAT_APP=entra_app,RT_REGION=$R,ENTRA_TENANT_ID=$ENTRA_TENANT_ID,ENTRA_CLIENT_ID=$ENTRA_TEST_CLIENT_ID,ENTRA_AGENT_APP_ID=$ENTRA_AGENT_APP_ID,ENTRA_RT_ARN=$ENTRA_RT_ARN,WEB_BASE_URL=$ENTRA_URL}" >/dev/null
 # Entra GUI: sign-in redirects on the Entra test client, 3LO return URL on the Entra agent's workload identity (merged, never replaced)
-WEB_RBAC_URL=$RBAC_URL WEB_ENTRA_URL=$ENTRA_URL "$ROOT/agent/.venv/bin/python" "$ROOT/infra/18-entra-setup.py" >/dev/null
+WEB_RBAC_URL=$RBAC_URL WEB_ENTRA_URL=$ENTRA_URL "$ROOT/agent_obo/.venv/bin/python" "$ROOT/infra/18-entra-setup.py" >/dev/null
 ECUR=$(aws bedrock-agentcore-control get-workload-identity --region $R --name $ENTRA_WI_NAME --query 'allowedResourceOauth2ReturnUrls' --output text)
 aws bedrock-agentcore-control update-workload-identity --region $R --name $ENTRA_WI_NAME \
   --allowed-resource-oauth2-return-urls $(echo $ECUR http://localhost:8765/callback $ENTRA_URL/3lo/callback | tr ' \t' '\n\n' | grep . | sort -u) >/dev/null
-WEBCHAT_URLS="$OBO_URL $OAUTH_URL $RBAC_URL" "$ROOT/agent/.venv/bin/python" "$ROOT/infra/13-web-login-client.py"   # Cognito callback + logout URLs
+WEBCHAT_URLS="$OBO_URL $OAUTH_URL $RBAC_URL" "$ROOT/agent_obo/.venv/bin/python" "$ROOT/infra/13-web-login-client.py"   # Cognito callback + logout URLs
 CUR=$(aws bedrock-agentcore-control get-workload-identity --region $R --name $OAUTH_WI_NAME --query 'allowedResourceOauth2ReturnUrls' --output text)
 aws bedrock-agentcore-control update-workload-identity --region $R --name $OAUTH_WI_NAME \
   --allowed-resource-oauth2-return-urls $(echo $CUR $OAUTH_URL/3lo/callback | tr ' ' '\n' | sort -u) >/dev/null

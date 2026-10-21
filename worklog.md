@@ -1,3 +1,15 @@
+## [2026-10-21] Entra ID setup removed from GitHub (kept locally)
+- **改了什么**：`agent_entra/`、`RUNBOOK-entra-id.md`、`infra/*entra*`（18/19/20 脚本、policies、registry）、Entra tests 和结果、`tests/totp.py`、`webchat/entra_*` 加入 .gitignore 并 `git rm --cached`；本地文件不动；README 注明 Entra 部分 local only
+- **为什么改**：用户要求 GitHub 上不放 Entra ID 相关 setup
+- **涉及文件/资源**：.gitignore, README.md；GitHub serenity0102/agentcore-identity-for-gateway
+- **结果**：见 GitHub tree 校验（无 entra 文件）
+
+## [2026-10-21] Rename agent/ to agent_obo/
+- **改了什么**：`git mv agent agent_obo`（含本地 `.venv`）；33 个文件里的路径引用改为 `agent_obo/`（infra 脚本、tests、webchat、README、两份 runbook，以及本地的 docs/decks）
+- **为什么改**：目录名明确对应 OBO agent，和 `agent_oauth/`、`agent_entra/` 对齐
+- **涉及文件/资源**：agent_obo/, infra/08,11,14,17,18,19,20, tests/, webchat/, README.md, RUNBOOK-*.md；S3 前缀 `agent/` 和 IAM policy 不变（不影响已部署的 runtime）
+- **结果**：bash -n、py_compile 通过；`tests/validate_matrix.py` 16/16；已推送 GitHub
+
 ## [2026-10-21] Publish RUNBOOK-entra-id.md without passwords
 - **改了什么**：RUNBOOK-entra-id.md 的 Demo access 表格密码列改为指向 `tests/.entra-users.env`；带密码版本另存为 RUNBOOK-entra-id.local.md（gitignored）；README 说明同步更新
 - **为什么改**：用户要求把 Entra runbook 推到 GitHub，但不公开测试用户密码

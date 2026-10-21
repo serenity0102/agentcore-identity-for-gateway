@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 2LO downstream: AgentCore Gateway (MCP, inbound JWT = 2LO client's M2M token only) -> Lambda -> Redshift as svc_reporting.
 set -euo pipefail; source "$(dirname "$0")/00-config.sh"; R=$RT_REGION; ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-"$ROOT/agent/.venv/bin/python" "$ROOT/infra/05-seed-redshift.py" 02-svc-reporting.sql
+"$ROOT/agent_obo/.venv/bin/python" "$ROOT/infra/05-seed-redshift.py" 02-svc-reporting.sql
 
 # Lambda role: Data API as svc_reporting only
 LR=${PROJECT}-reporting-lambda-role

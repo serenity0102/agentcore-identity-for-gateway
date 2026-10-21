@@ -18,3 +18,14 @@ RUNBOOK-entra-id.local.md
 # kept local only (not published)
 docs/
 history/
+
+# Microsoft Entra ID setup: kept local only (not published)
+agent_entra/
+RUNBOOK-entra-id.md
+infra/*entra*
+infra/policies/*entra*
+infra/registry/*entra*
+tests/*entra*
+tests/results/*entra*
+tests/totp.py
+webchat/entra_*

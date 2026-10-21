@@ -2,7 +2,7 @@
 then call each gateway's MCP endpoint with the user's ACCESS token (it carries the `roles` claim from the Pre Token trigger).
 For every tool the GUI shows: listed by tools/list? and the result of a direct tools/call, so hidden tools prove that
 Cedar denies them too. Tokens stay server-side (in memory, keyed by an HttpOnly cookie).
-Run:  infra/run.sh agent/.venv/bin/python webchat/rbac_app.py   then open http://localhost:8082"""
+Run:  infra/run.sh agent_obo/.venv/bin/python webchat/rbac_app.py   then open http://localhost:8082"""
 import base64, hashlib, json, os, secrets, urllib.parse, urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
